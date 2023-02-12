@@ -20,7 +20,7 @@ impl Plugin for LocationsPlugin {
                         tile_size: Vec2::new(208., 256.),
                         cols: 1,
                         rows: 1,
-                        scale: 0.6,
+                        scale: 0.55,
                         z: 0.0,
                         ..default()
                     },
@@ -30,17 +30,17 @@ impl Plugin for LocationsPlugin {
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
                         rows: 1,
-                        scale: 0.6,
+                        scale: 0.55,
                         z: 1.0,
                         ..default()
                     },
                     LayerData {
-                        speed: 0.6,
+                        speed: 0.55,
                         path: "textures/map/Hills Layer 03.png".to_string(),
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
                         rows: 1,
-                        scale: 0.6,
+                        scale: 0.55,
                         z: 2.0,
                         ..default()
                     },
@@ -50,7 +50,7 @@ impl Plugin for LocationsPlugin {
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
                         rows: 1,
-                        scale: 0.6,
+                        scale: 0.55,
                         z: 3.0,
                         ..default()
                     },
@@ -60,7 +60,7 @@ impl Plugin for LocationsPlugin {
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
                         rows: 1,
-                        scale: 0.6,
+                        scale: 0.55,
                         z: 4.0,
                         ..default()
                     },
@@ -70,7 +70,7 @@ impl Plugin for LocationsPlugin {
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
                         rows: 1,
-                        scale: 0.6,
+                        scale: 0.55,
                         z: 5.0,
                         ..default()
                     },
