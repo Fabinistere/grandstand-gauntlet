@@ -57,25 +57,6 @@ fn animate_player(
     }
 }
 
-fn animate(
-    time: Res<Time>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    mut query: Query<(
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-        &Handle<TextureAtlas>,
-    )>,
-) {
-    for (mut timer, mut sprite, texture_atlas_handle) in &mut query {
-        timer.tick(time.delta());
-        if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
-
-            sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
-        }
-    }
-}
-
 fn setup_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -91,15 +72,17 @@ fn setup_player(
     animation_indices.insert(PlayerState::Hit, (27, 28));
     animation_indices.insert(PlayerState::Dead, (29, 33));
 
-    let texture_handle = asset_server.load("character_spritesheet.png");
+    let texture_handle = asset_server.load("textures/character/character_spritesheet.png");
     let texture_atlas =
         TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
+    let texture_atlas_sprite = TextureAtlasSprite::new(0);
+
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
-            sprite: TextureAtlasSprite::new(0),
+            sprite: texture_atlas_sprite,
             ..default()
         },
         AnimationTimer(Timer::from_seconds(0.2, TimerMode::Repeating)),
