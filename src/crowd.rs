@@ -1,4 +1,4 @@
-use crate::constants::CROWD_CHARACTER_Z;
+use crate::constants::character::CROWD_CHARACTER_Z;
 use bevy::{
     ecs::schedule::ShouldRun,
     prelude::*,

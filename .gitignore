@@ -14,3 +14,4 @@ Cargo.lock
 /assets/**
 
 # Custom Code setup
+/.vscode/**
