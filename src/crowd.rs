@@ -1,25 +1,28 @@
 use bevy::{
+    ecs::schedule::ShouldRun,
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
 };
+use rand::Rng;
 
 pub struct CrowdPlugin;
 
 impl Plugin for CrowdPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system_to_stage(StartupStage::PreStartup, setup)
-            .add_event::<GenerateCrowdEvent>()
-            .add_system(generate_random_color_character)
-            .add_plugin(Material2dPlugin::<CrowdMaterial>::default());
+            .add_system(generate_crowd.with_run_criteria(texture_not_loaded))
+            .add_plugin(Material2dPlugin::<CrowdMaterial>::default())
+            .insert_resource(CharacterSpriteSheetLoaded(false));
     }
 }
 
 #[derive(Debug, Deref, DerefMut, Resource)]
-pub struct CharacterSpritesheetImage(Handle<Image>);
+struct CharacterSpritesheetImage(Handle<Image>);
 
-pub struct GenerateCrowdEvent;
+#[derive(Debug, Deref, DerefMut, Resource)]
+struct CharacterSpriteSheetLoaded(bool);
 
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "74cfb505-0694-4ba0-bc81-3532cb0e69ce"]
@@ -37,12 +40,18 @@ impl Material2d for CrowdMaterial {
     }
 }
 
+fn texture_not_loaded(character_spritehseet_loaded: Res<CharacterSpriteSheetLoaded>) -> ShouldRun {
+    if **character_spritehseet_loaded {
+        ShouldRun::No
+    } else {
+        ShouldRun::Yes
+    }
+}
+
 fn setup(
-    mut generate_crowd_event: EventWriter<GenerateCrowdEvent>,
     mut commands: Commands,
     mut materials: ResMut<Assets<CrowdMaterial>>,
     asset_server: Res<AssetServer>,
-    mut assets: ResMut<Assets<Image>>,
 ) {
     commands.spawn(MaterialMesh2dBundle {
         material: materials.add(CrowdMaterial {
@@ -52,46 +61,54 @@ fn setup(
         ..default()
     });
 
-    let mut image: Handle<Image> =
-        asset_server.load("textures/character/character_spritesheet.png");
-    image.make_strong(&assets);
+    let image = asset_server.load("textures/character/character_spritesheet.png");
     commands.insert_resource(CharacterSpritesheetImage(image));
-
-    generate_crowd_event.send(GenerateCrowdEvent);
 }
 
-fn generate_random_color_character(
-    mut generate_crowd_event: EventReader<GenerateCrowdEvent>,
-    asset_server: Res<AssetServer>,
-    mut assets: ResMut<Assets<Image>>,
+fn generate_crowd(
+    mut character_spritehseet_loaded: ResMut<CharacterSpriteSheetLoaded>,
     mut commands: Commands,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut assets: ResMut<Assets<Image>>,
     character_spritesheet_image: Res<CharacterSpritesheetImage>,
 ) {
-    for GenerateCrowdEvent in generate_crowd_event.iter() {
-        let image = assets.get(&character_spritesheet_image).unwrap().clone();
-        let image_dynamic = image.try_into_dynamic().unwrap();
+    if let Some(image_handle) = assets.get(&**character_spritesheet_image) {
+        **character_spritehseet_loaded = true;
+        let image_handle = image_handle.clone();
 
-        for image::Rgba([r, g, b, a]) in image_dynamic.to_rgba16().pixels_mut() {
-            if *a > 0 {
-                *r += (255 - 200) / 4;
-                *g += (255 - 200) / 4;
-                *b += (255 - 1) / 4;
+        let mut transform = 10.0;
+
+        for _ in 0..5 {
+            let image = image_handle.clone();
+            let mut image_dynamic = image.try_into_dynamic().unwrap();
+
+            for image::Rgba([r, g, b, a]) in image_dynamic.to_rgba8().pixels_mut() {
+                if *a > 0 {
+                    *r += ((255 - *r) as f32 * 1.0) as u8;
+                    *g += ((255 - *g) as f32 * 1.0) as u8;
+                    *b += ((255 - *b) as f32 * 0.0) as u8;
+                }
             }
+
+            let mut rand = rand::thread_rng();
+            image_dynamic = image_dynamic.huerotate(rand.gen_range(0..360));
+            // .brighten(-50);
+
+            let texture_handle = assets.add(Image::from_dynamic(image_dynamic, true));
+            let texture_atlas =
+                TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
+            let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
+            let texture_atlas_sprite = TextureAtlasSprite::new(0);
+
+            commands.spawn(SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle,
+                sprite: texture_atlas_sprite,
+                transform: Transform::from_translation(Vec3::new(transform, 0.0, 5.0)),
+                ..default()
+            });
+
+            transform += 30.0;
         }
-
-        let texture_handle = assets.add(Image::from_dynamic(image_dynamic, false));
-        let texture_atlas =
-            TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
-        let texture_atlas_handle = texture_atlases.add(texture_atlas);
-
-        let texture_atlas_sprite = TextureAtlasSprite::new(0);
-
-        commands.spawn(SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: texture_atlas_sprite,
-            transform: Transform::from_translation(Vec3::new(5.0, 0.0, 5.0)),
-            ..default()
-        });
     }
 }
