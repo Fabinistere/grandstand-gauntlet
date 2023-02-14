@@ -81,11 +81,11 @@ impl Plugin for LocationsPlugin {
             //     SystemSet::on_enter(Location::Desert)
             //         .with_system(setup_map)
             // )
-            .add_system_set(
-                SystemSet::on_update(Location::Desert)
-                    // .with_run_criteria(run_if_in_level_one)
-                    .with_system(move_camera_system)
-            )
+            // .add_system_set(
+            //     SystemSet::on_update(Location::Desert)
+            //         // .with_run_criteria(run_if_in_level_one)
+            //         .with_system(move_camera_system)
+            // )
             ;
     }
 }
