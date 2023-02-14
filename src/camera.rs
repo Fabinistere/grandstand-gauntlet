@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::player::Player;
+use crate::characters::player::Player;
 
 /// The camera follows the current controled entity
 ///
