@@ -2,6 +2,7 @@ use bevy::{prelude::*, utils::HashMap};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
+    camera::camera_follow,
     constants::character::CHAR_POSITION,
     movement::{MovementBundle, Speed},
 };
@@ -12,6 +13,8 @@ impl Plugin for PlayerPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
         app .add_startup_system(setup_player)
+            // -- Camera --
+            .add_system(camera_follow)
             // -- Animation --
             .add_system(animate_player)
             .add_system(jump_frame_player_state)
@@ -203,7 +206,7 @@ fn setup_player(
         Player,
         Name::new("Player"),
         // -- Animation --
-        AnimationTimer(Timer::from_seconds(0.2, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         animation_indices,
         PlayerState::Idle,
         // -- Hitbox --

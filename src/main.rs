@@ -7,6 +7,7 @@ use debug::DebugPlugin;
 use locations::LocationsPlugin;
 use player::PlayerPlugin;
 
+pub mod camera;
 pub mod constants;
 mod debug;
 mod locations;
