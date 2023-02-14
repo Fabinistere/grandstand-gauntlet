@@ -10,6 +10,7 @@ edition = "2021"
 bevy = { version = "0.9", features = ["dynamic"] }
 bevy-parallax = "0.3"
 bevy_rapier2d = "0.20"
+image = "0.24"
 
 [profile.dev.package."*"]
 opt-level = 3

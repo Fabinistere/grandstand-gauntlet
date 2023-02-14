@@ -1,4 +1,5 @@
 pub mod constants;
+mod crowd;
 mod locations;
 mod player;
 
@@ -27,6 +28,7 @@ fn main() {
         .add_plugin(ParallaxPlugin)
         .add_plugin(LocationsPlugin)
         .add_plugin(player::PlayerPlugin)
+        .add_plugin(crowd::CrowdPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
