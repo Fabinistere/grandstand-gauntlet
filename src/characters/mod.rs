@@ -23,3 +23,6 @@ impl Plugin for CharacterPlugin {
             ;
     }
 }
+
+#[derive(Component)]
+pub struct Invulnerable;

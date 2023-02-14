@@ -20,6 +20,9 @@ pub struct AnimationTimer(pub Timer);
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
 
+/// # Note
+///
+/// REFACTOR: Crappy solution right there
 pub fn animate_character(
     time: Res<Time>,
     mut query: Query<

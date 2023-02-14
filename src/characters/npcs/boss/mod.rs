@@ -1,3 +1,4 @@
+mod aggression;
 mod movement;
 
 use bevy::{prelude::*, utils::HashMap};
