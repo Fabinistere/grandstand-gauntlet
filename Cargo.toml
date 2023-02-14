@@ -18,6 +18,9 @@ bevy-parallax = "0.3"
 # ----------- Debug -----------
 bevy-inspector-egui = "0.15"
 
+image = "0.24"
+rand = "0.8"
+
 [profile.dev.package."*"]
 opt-level = 3
 

@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod constants;
+mod crowd;
 mod debug;
 mod locations;
 pub mod movement;
@@ -46,6 +47,7 @@ fn main() {
         .add_plugin(LocationsPlugin)
         .add_plugin(PlayerPlugin)
         .add_plugin(DebugPlugin)
+        .add_plugin(crowd::CrowdPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
