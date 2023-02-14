@@ -71,7 +71,7 @@ impl Plugin for LocationsPlugin {
                         cols: 1,
                         rows: 1,
                         scale: 0.6,
-                        z: 5.0,
+                        z: 11.0,
                         ..default()
                     },
                 ],

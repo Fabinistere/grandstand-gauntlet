@@ -1,13 +1,13 @@
-mod player;
-
 use bevy::prelude::*;
 
 use bevy_parallax::{ParallaxCameraComponent, ParallaxPlugin};
 use constants::CLEAR;
 use locations::LocationsPlugin;
+use player::PlayerPlugin;
 
 pub mod constants;
 mod locations;
+mod player;
 
 #[rustfmt::skip]
 fn main() {
@@ -27,6 +27,7 @@ fn main() {
         )
         .add_plugin(ParallaxPlugin)
         .add_plugin(LocationsPlugin)
+        .add_plugin(PlayerPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
