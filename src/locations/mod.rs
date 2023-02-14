@@ -15,7 +15,7 @@ impl Plugin for LocationsPlugin {
             .insert_resource(ParallaxResource {
                 layer_data: vec![
                     LayerData {
-                        speed: 0.9,
+                        speed: 0.2,
                         path: "textures/map/Hills_Back.png".to_string(),
                         tile_size: Vec2::new(208., 256.),
                         cols: 1,
@@ -25,7 +25,7 @@ impl Plugin for LocationsPlugin {
                         ..default()
                     },
                     LayerData {
-                        speed: 0.8,
+                        speed: 0.4,
                         path: "textures/map/Hills Layer 02.png".to_string(),
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
@@ -35,7 +35,7 @@ impl Plugin for LocationsPlugin {
                         ..default()
                     },
                     LayerData {
-                        speed: 0.6,
+                        speed: 0.5,
                         path: "textures/map/Hills Layer 03.png".to_string(),
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
@@ -45,7 +45,7 @@ impl Plugin for LocationsPlugin {
                         ..default()
                     },
                     LayerData {
-                        speed: 0.5,
+                        speed: 0.6,
                         path: "textures/map/Hills Layer 04.png".to_string(),
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
@@ -55,7 +55,7 @@ impl Plugin for LocationsPlugin {
                         ..default()
                     },
                     LayerData {
-                        speed: 0.4,
+                        speed: 0.8,
                         path: "textures/map/Hills Layer 05.png".to_string(),
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
@@ -65,13 +65,13 @@ impl Plugin for LocationsPlugin {
                         ..default()
                     },
                     LayerData {
-                        speed: 0.2,
+                        speed: 0.9,
                         path: "textures/map/Hills Layer 06.png".to_string(),
                         tile_size: Vec2::new(512., 256.),
                         cols: 1,
                         rows: 1,
                         scale: 0.6,
-                        z: 5.0,
+                        z: 11.0,
                         ..default()
                     },
                 ],
@@ -104,14 +104,14 @@ pub fn move_camera_system(
 ) {
     if keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right) {
         move_event_writer.send(ParallaxMoveEvent {
-            camera_move_speed: 3.,
+            camera_move_speed: -0.5,
         });
     } else if keyboard_input.pressed(KeyCode::Q)
         || keyboard_input.pressed(KeyCode::A)
         || keyboard_input.pressed(KeyCode::Left)
     {
         move_event_writer.send(ParallaxMoveEvent {
-            camera_move_speed: -3.,
+            camera_move_speed: 0.5,
         });
     }
 }
