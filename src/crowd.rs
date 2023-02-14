@@ -1,3 +1,4 @@
+use crate::constants::CROWD_CHARACTER_Z;
 use bevy::{
     ecs::schedule::ShouldRun,
     prelude::*,
@@ -104,7 +105,11 @@ fn generate_crowd(
             commands.spawn(SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle,
                 sprite: texture_atlas_sprite,
-                transform: Transform::from_translation(Vec3::new(transform, 0.0, 5.0)),
+                transform: Transform::from_translation(Vec3::new(
+                    transform,
+                    -55.0,
+                    CROWD_CHARACTER_Z,
+                )),
                 ..default()
             });
 
