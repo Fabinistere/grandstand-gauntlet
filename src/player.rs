@@ -1,11 +1,28 @@
 use bevy::{prelude::*, utils::HashMap};
+use bevy_rapier2d::prelude::*;
+
+use crate::{
+    camera::camera_follow,
+    constants::character::CHAR_POSITION,
+    movement::{MovementBundle, Speed},
+};
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
+    #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup_player)
-            .add_system(animate_player);
+        app .add_startup_system(setup_player)
+            // -- Camera --
+            .add_system(camera_follow)
+            // -- Animation --
+            .add_system(animate_player)
+            .add_system(jump_frame_player_state)
+            // -- Aggression --
+            .add_system(player_attack)
+            // -- Movement --
+            .add_system(player_movement)
+            ;
     }
 }
 
@@ -30,6 +47,63 @@ enum PlayerState {
     Dead,
 }
 
+fn player_attack(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut player_query: Query<(Entity, &mut PlayerState), With<Player>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        info!("return pressed");
+        let (_player, mut state) = player_query.single_mut();
+        *state = PlayerState::Attack;
+    }
+}
+
+fn player_movement(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut player_query: Query<
+        (
+            &Speed,
+            &mut Velocity,
+            &mut TextureAtlasSprite,
+            &mut PlayerState,
+        ),
+        With<Player>,
+    >,
+) {
+    if let Ok((speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
+        player_query.get_single_mut()
+    {
+        let left = keyboard_input.pressed(KeyCode::Q)
+            || keyboard_input.pressed(KeyCode::Left)
+            || keyboard_input.pressed(KeyCode::A);
+        let right = keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right);
+
+        let x_axis = (right as i8) - left as i8;
+
+        let mut vel_x = x_axis as f32 * **speed;
+
+        if x_axis != 0 {
+            vel_x *= (std::f32::consts::PI / 4.).cos();
+        }
+
+        rb_vel.linvel.x = vel_x;
+
+        // if there is any movement
+        if (left || right) && *player_state != PlayerState::Run {
+            *player_state = PlayerState::Run;
+        } else if !(left || right) && *player_state == PlayerState::Run {
+            *player_state = PlayerState::Idle;
+        }
+
+        // look where they are going - in the direction
+        if right {
+            texture_atlas_sprite.flip_x = false;
+        } else if left {
+            texture_atlas_sprite.flip_x = true;
+        }
+    }
+}
+
 fn animate_player(
     time: Res<Time>,
     mut query: Query<
@@ -37,23 +111,66 @@ fn animate_player(
             &AnimationIndices,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
-            &PlayerState,
+            &mut PlayerState,
         ),
         With<Player>,
     >,
 ) {
-    for (indices, mut timer, mut sprite, player_state) in &mut query {
+    for (indices, mut timer, mut sprite, mut player_state) in &mut query {
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            let indices = indices[player_state];
+            let indices = indices[&player_state];
+            // REFACTOR: the limit being modified by magical number
+            let limit: usize;
+            let start_back: usize;
+            let state_when_restart: Option<PlayerState>;
 
-            sprite.index = if sprite.index == indices.1 {
-                indices.0
+            if *player_state == PlayerState::Attack || *player_state == PlayerState::SecondAttack {
+                // Idle
+                start_back = 0;
+                state_when_restart = Some(PlayerState::Idle);
+                // End of SecondAttack
+                limit = 26;
+            } else if *player_state == PlayerState::Run {
+                // Idle
+                start_back = 0;
+                state_when_restart = Some(PlayerState::Idle);
+                // End of SecondAttack
+                limit = 12;
             } else {
-                sprite.index + 1
+                // Loop
+                start_back = indices.0;
+                state_when_restart = None;
+                limit = indices.1;
+            }
+
+            if sprite.index == limit {
+                sprite.index = start_back;
+                // update state
+                match state_when_restart {
+                    Some(new_state) => *player_state = new_state,
+                    None => continue,
+                }
+            } else {
+                sprite.index = sprite.index + 1
             };
         }
+    }
+}
+
+/// Anytime the PlayerState change,
+/// force the sprite to match this change.
+fn jump_frame_player_state(
+    mut query: Query<
+        (&AnimationIndices, &mut TextureAtlasSprite, &PlayerState),
+        (With<Player>, Changed<PlayerState>),
+    >,
+) {
+    for (indices, mut sprite, player_state) in &mut query {
+        let indices = indices[&player_state];
+        // Jump directly to the correct frame
+        sprite.index = indices.0;
     }
 }
 
@@ -83,11 +200,24 @@ fn setup_player(
         SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             sprite: texture_atlas_sprite,
+            transform: Transform::from_translation(CHAR_POSITION.into()),
             ..default()
         },
-        AnimationTimer(Timer::from_seconds(0.2, TimerMode::Repeating)),
-        animation_indices,
         Player,
+        Name::new("Player"),
+        // -- Animation --
+        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+        animation_indices,
         PlayerState::Idle,
+        // -- Hitbox --
+        RigidBody::Dynamic,
+        LockedAxes::ROTATION_LOCKED,
+        MovementBundle {
+            speed: Speed::default(),
+            velocity: Velocity {
+                linvel: Vect::ZERO,
+                angvel: 0.,
+            },
+        },
     ));
 }
