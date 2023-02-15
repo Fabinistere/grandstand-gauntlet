@@ -1,21 +1,20 @@
 #![allow(clippy::type_complexity)]
 
 pub mod camera;
+pub mod characters;
 pub mod constants;
 mod crowd;
 mod debug;
 mod locations;
-pub mod movement;
-mod player;
 
 use bevy::prelude::*;
 use bevy_parallax::{ParallaxCameraComponent, ParallaxPlugin};
 use bevy_rapier2d::prelude::*;
 
+use characters::CharacterPlugin;
 use constants::{CLEAR, TILE_SIZE};
 use debug::DebugPlugin;
 use locations::LocationsPlugin;
-use player::PlayerPlugin;
 
 #[rustfmt::skip]
 fn main() {
@@ -47,7 +46,7 @@ fn main() {
         ))
         .add_plugin(ParallaxPlugin)
         .add_plugin(LocationsPlugin)
-        .add_plugin(PlayerPlugin)
+        .add_plugin(CharacterPlugin)
         .add_plugin(DebugPlugin)
         .add_plugin(crowd::CrowdPlugin)
         .add_startup_system(spawn_camera)

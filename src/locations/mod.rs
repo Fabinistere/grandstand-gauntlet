@@ -84,7 +84,7 @@ impl Plugin for LocationsPlugin {
             .add_system_set(
                 SystemSet::on_update(Location::Desert)
                     // .with_run_criteria(run_if_in_level_one)
-                    .with_system(move_camera_system)
+                    .with_system(move_parallax_system)
             )
             ;
     }
@@ -98,7 +98,7 @@ impl Plugin for LocationsPlugin {
 // }
 
 /// Send a ParallaxMoveEvent with the desired camera movement speed
-pub fn move_camera_system(
+pub fn move_parallax_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut move_event_writer: EventWriter<ParallaxMoveEvent>,
 ) {
