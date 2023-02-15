@@ -1,8 +1,8 @@
 use crate::{
-    characters::animations::{AnimationTimer, CharacterState},
+    characters::animations::{AnimationIndices, AnimationTimer, CharacterState},
     constants::character::CROWD_CHARACTER_Z,
 };
-use bevy::{ecs::schedule::ShouldRun, prelude::*};
+use bevy::{ecs::schedule::ShouldRun, prelude::*, utils::HashMap};
 use rand::Rng;
 
 pub struct CrowdPlugin;
@@ -64,6 +64,16 @@ fn generate_crowd(
     character_spritesheet_image: Res<CharacterSpritesheetImage>,
 ) {
     if let Some(image_handle) = assets.get(&**character_spritesheet_image) {
+        let mut animation_indices = AnimationIndices(HashMap::new());
+        animation_indices.insert(CharacterState::Idle, (0, 4));
+        animation_indices.insert(CharacterState::Attack, (19, 23));
+        animation_indices.insert(CharacterState::SecondAttack, (24, 26));
+        animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
+        animation_indices.insert(CharacterState::Charge, (15, 18));
+        animation_indices.insert(CharacterState::Run, (5, 12));
+        animation_indices.insert(CharacterState::Hit, (27, 28));
+        animation_indices.insert(CharacterState::Dead, (29, 33));
+
         **character_spritehseet_loaded = true;
         let image_handle = image_handle.clone();
 
@@ -73,15 +83,6 @@ fn generate_crowd(
         for _ in 0..5 {
             let image = image_handle.clone();
             let mut image_dynamic = image.try_into_dynamic().unwrap();
-
-            for image::Rgba([r, g, b, a]) in image_dynamic.to_rgba8().pixels_mut() {
-                if *a > 0 {
-                    *r += ((255 - *r) as f32 * 1.0) as u8;
-                    *g += ((255 - *g) as f32 * 1.0) as u8;
-                    *b += ((255 - *b) as f32 * 0.0) as u8;
-                }
-            }
-
             image_dynamic = image_dynamic.huerotate(rand.gen_range(0..360));
             // .brighten(-50);
 
@@ -109,6 +110,7 @@ fn generate_crowd(
                     0.1 + rand.gen_range(-0.02..0.02),
                     TimerMode::Repeating,
                 )),
+                animation_indices.clone(),
             ));
 
             transform += 30.0;

@@ -100,8 +100,6 @@ fn setup_player(
     animation_indices.insert(CharacterState::Hit, (27, 28));
     animation_indices.insert(CharacterState::Dead, (29, 33));
 
-    commands.insert_resource(animation_indices);
-
     let texture_handle = asset_server.load("textures/character/character_spritesheet.png");
     let texture_atlas =
         TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
@@ -121,6 +119,7 @@ fn setup_player(
         // -- Animation --
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         CharacterState::Idle,
+        animation_indices,
         // -- Hitbox --
         RigidBody::Dynamic,
         LockedAxes::ROTATION_LOCKED,

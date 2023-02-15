@@ -6,7 +6,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        animations::{AnimationTimer, CharacterState},
+        animations::{AnimationIndices, AnimationTimer, CharacterState},
         movement::{MovementBundle, Speed},
     },
     constants::character::CHAR_POSITION,
@@ -33,6 +33,16 @@ fn setup_boss(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    let mut animation_indices = AnimationIndices(HashMap::new());
+    animation_indices.insert(CharacterState::Idle, (0, 4));
+    animation_indices.insert(CharacterState::Attack, (19, 26));
+    animation_indices.insert(CharacterState::SecondAttack, (24, 26));
+    animation_indices.insert(CharacterState::TransitionToCharge, (11, 14));
+    animation_indices.insert(CharacterState::Charge, (15, 18));
+    animation_indices.insert(CharacterState::Run, (5, 10));
+    animation_indices.insert(CharacterState::Hit, (27, 28));
+    animation_indices.insert(CharacterState::Dead, (29, 34));
+
     let texture_handle = asset_server.load("textures/character/magic_bot_spritesheet.png");
     let texture_atlas =
         TextureAtlas::from_grid(texture_handle, Vec2::new(200.0, 200.0), 35, 1, None, None);
@@ -52,6 +62,7 @@ fn setup_boss(
         // -- Animation --
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         CharacterState::Idle,
+        animation_indices,
         // -- Hitbox --
         RigidBody::Dynamic,
         LockedAxes::ROTATION_LOCKED,
