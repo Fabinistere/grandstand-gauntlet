@@ -1,6 +1,9 @@
 use crate::{
     characters::animations::{AnimationIndices, AnimationTimer, CharacterState},
-    constants::character::CROWD_CHARACTER_Z,
+    constants::{
+        character::CROWD_CHARACTER_Z,
+        crowd::{CROWD_SIZE, CROWD_SPAN},
+    },
 };
 use bevy::{ecs::schedule::ShouldRun, prelude::*, utils::HashMap};
 use rand::Rng;
@@ -78,9 +81,10 @@ fn generate_crowd(
         let image_handle = image_handle.clone();
 
         let mut rand = rand::thread_rng();
-        let mut transform = 10.0;
+        let crowd_member_spacing = CROWD_SPAN * 2.0 / CROWD_SIZE as f32;
+        let mut current_crowd_member_x = -CROWD_SPAN;
 
-        for _ in 0..5 {
+        for _ in 0..CROWD_SIZE {
             let image = image_handle.clone();
             let mut image_dynamic = image.try_into_dynamic().unwrap();
             image_dynamic = image_dynamic.huerotate(rand.gen_range(0..360));
@@ -98,7 +102,7 @@ fn generate_crowd(
                     texture_atlas: texture_atlas_handle,
                     sprite: texture_atlas_sprite,
                     transform: Transform::from_translation(Vec3::new(
-                        transform,
+                        current_crowd_member_x + rand.gen_range(-10.0..=10.0),
                         -55.0,
                         CROWD_CHARACTER_Z,
                     )),
@@ -113,7 +117,7 @@ fn generate_crowd(
                 animation_indices.clone(),
             ));
 
-            transform += 30.0;
+            current_crowd_member_x += crowd_member_spacing;
         }
     }
 }
