@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 pub mod camera;
 pub mod constants;
 mod crowd;

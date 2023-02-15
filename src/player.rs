@@ -27,16 +27,16 @@ impl Plugin for PlayerPlugin {
 }
 
 #[derive(Component, Deref, DerefMut)]
-struct AnimationTimer(Timer);
+pub struct AnimationTimer(pub Timer);
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut)]
 struct AnimationIndices(HashMap<PlayerState, (usize, usize)>);
 
 #[derive(Component)]
 pub struct Player;
 
 #[derive(Component, PartialEq, Eq, Hash)]
-enum PlayerState {
+pub enum PlayerState {
     Idle,
     Attack,
     SecondAttack,
@@ -106,17 +106,14 @@ fn player_movement(
 
 fn animate_player(
     time: Res<Time>,
-    mut query: Query<
-        (
-            &AnimationIndices,
-            &mut AnimationTimer,
-            &mut TextureAtlasSprite,
-            &mut PlayerState,
-        ),
-        With<Player>,
-    >,
+    mut query: Query<(
+        &mut AnimationTimer,
+        &mut TextureAtlasSprite,
+        &mut PlayerState,
+    )>,
+    indices: Res<AnimationIndices>,
 ) {
-    for (indices, mut timer, mut sprite, mut player_state) in &mut query {
+    for (mut timer, mut sprite, mut player_state) in &mut query {
         timer.tick(time.delta());
 
         if timer.just_finished() {
@@ -162,13 +159,12 @@ fn animate_player(
 /// Anytime the PlayerState change,
 /// force the sprite to match this change.
 fn jump_frame_player_state(
-    mut query: Query<
-        (&AnimationIndices, &mut TextureAtlasSprite, &PlayerState),
-        (With<Player>, Changed<PlayerState>),
-    >,
+    mut query: Query<(&mut TextureAtlasSprite, &PlayerState), (With<Player>, Changed<PlayerState>)>,
+    indices: Res<AnimationIndices>,
+    keyboard_input: Res<Input<KeyCode>>,
 ) {
-    for (indices, mut sprite, player_state) in &mut query {
-        let indices = indices[&player_state];
+    for (mut sprite, player_state) in &mut query {
+        let indices = indices[player_state];
         // Jump directly to the correct frame
         sprite.index = indices.0;
     }
@@ -189,6 +185,8 @@ fn setup_player(
     animation_indices.insert(PlayerState::Hit, (27, 28));
     animation_indices.insert(PlayerState::Dead, (29, 33));
 
+    commands.insert_resource(animation_indices);
+
     let texture_handle = asset_server.load("textures/character/character_spritesheet.png");
     let texture_atlas =
         TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
@@ -207,7 +205,6 @@ fn setup_player(
         Name::new("Player"),
         // -- Animation --
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-        animation_indices,
         PlayerState::Idle,
         // -- Hitbox --
         RigidBody::Dynamic,

@@ -1,20 +1,17 @@
-use crate::constants::character::CROWD_CHARACTER_Z;
-use bevy::{
-    ecs::schedule::ShouldRun,
-    prelude::*,
-    reflect::TypeUuid,
-    render::render_resource::{AsBindGroup, ShaderRef},
-    sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
+use crate::{
+    constants::character::CROWD_CHARACTER_Z,
+    player::{AnimationTimer, PlayerState},
 };
+use bevy::{ecs::schedule::ShouldRun, prelude::*};
 use rand::Rng;
 
 pub struct CrowdPlugin;
 
 impl Plugin for CrowdPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system_to_stage(StartupStage::PreStartup, setup)
+        app.add_startup_system(setup)
             .add_system(generate_crowd.with_run_criteria(texture_not_loaded))
-            .add_plugin(Material2dPlugin::<CrowdMaterial>::default())
+            .add_system(move_crowd_with_background)
             .insert_resource(CharacterSpriteSheetLoaded(false));
     }
 }
@@ -25,21 +22,8 @@ struct CharacterSpritesheetImage(Handle<Image>);
 #[derive(Debug, Deref, DerefMut, Resource)]
 struct CharacterSpriteSheetLoaded(bool);
 
-#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "74cfb505-0694-4ba0-bc81-3532cb0e69ce"]
-pub struct CrowdMaterial {
-    #[uniform(0)]
-    color: Color,
-    #[texture(1)]
-    #[sampler(2)]
-    color_texture: Handle<Image>,
-}
-
-impl Material2d for CrowdMaterial {
-    fn fragment_shader() -> ShaderRef {
-        "shaders/crowd_material.wgsl".into()
-    }
-}
+#[derive(Debug, Component)]
+struct CrowdMember;
 
 fn texture_not_loaded(character_spritehseet_loaded: Res<CharacterSpriteSheetLoaded>) -> ShouldRun {
     if **character_spritehseet_loaded {
@@ -49,21 +33,27 @@ fn texture_not_loaded(character_spritehseet_loaded: Res<CharacterSpriteSheetLoad
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<CrowdMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
-    commands.spawn(MaterialMesh2dBundle {
-        material: materials.add(CrowdMaterial {
-            color: Color::RED,
-            color_texture: asset_server.load("textures/character/character_spritesheet.png"),
-        }),
-        ..default()
-    });
-
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load("textures/character/character_spritesheet.png");
     commands.insert_resource(CharacterSpritesheetImage(image));
+}
+
+fn move_crowd_with_background(
+    mut query: Query<&mut Transform, With<CrowdMember>>,
+    keyboard_input: Res<Input<KeyCode>>,
+    time: Res<Time>,
+) {
+    for mut transform in query.iter_mut() {
+        let right = keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right);
+        let left = keyboard_input.pressed(KeyCode::Q)
+            || keyboard_input.pressed(KeyCode::A)
+            || keyboard_input.pressed(KeyCode::Left);
+
+        let dir = right as i8 - left as i8;
+        const SPEED: f32 = 18.0;
+
+        transform.translation.x += -dir as f32 * SPEED * time.delta_seconds();
+    }
 }
 
 fn generate_crowd(
@@ -77,6 +67,7 @@ fn generate_crowd(
         **character_spritehseet_loaded = true;
         let image_handle = image_handle.clone();
 
+        let mut rand = rand::thread_rng();
         let mut transform = 10.0;
 
         for _ in 0..5 {
@@ -91,7 +82,6 @@ fn generate_crowd(
                 }
             }
 
-            let mut rand = rand::thread_rng();
             image_dynamic = image_dynamic.huerotate(rand.gen_range(0..360));
             // .brighten(-50);
 
@@ -102,16 +92,24 @@ fn generate_crowd(
 
             let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-            commands.spawn(SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle,
-                sprite: texture_atlas_sprite,
-                transform: Transform::from_translation(Vec3::new(
-                    transform,
-                    -55.0,
-                    CROWD_CHARACTER_Z,
+            commands.spawn((
+                SpriteSheetBundle {
+                    texture_atlas: texture_atlas_handle,
+                    sprite: texture_atlas_sprite,
+                    transform: Transform::from_translation(Vec3::new(
+                        transform,
+                        -55.0,
+                        CROWD_CHARACTER_Z,
+                    )),
+                    ..default()
+                },
+                CrowdMember,
+                PlayerState::Idle,
+                AnimationTimer(Timer::from_seconds(
+                    0.1 + rand.gen_range(-0.02..0.02),
+                    TimerMode::Repeating,
                 )),
-                ..default()
-            });
+            ));
 
             transform += 30.0;
         }
