@@ -1,6 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
 
 use super::{npcs::boss::Boss, player::Player};
+use crate::crowd::CrowdMember;
 
 #[derive(Component, PartialEq, Eq, Hash)]
 pub enum CharacterState {
@@ -17,7 +18,7 @@ pub enum CharacterState {
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(pub Timer);
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
 
 /// # Note
@@ -25,17 +26,17 @@ pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
 /// REFACTOR: Crappy solution right there
 pub fn animate_character(
     time: Res<Time>,
+    indices: Res<AnimationIndices>,
     mut query: Query<
         (
-            &AnimationIndices,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
             &mut CharacterState,
         ),
-        Or<(With<Player>, With<Boss>)>,
+        Or<(With<Player>, With<Boss>, With<CrowdMember>)>,
     >,
 ) {
-    for (indices, mut timer, mut sprite, mut character_state) in &mut query {
+    for (mut timer, mut sprite, mut character_state) in &mut query {
         timer.tick(time.delta());
 
         if timer.just_finished() {
@@ -83,12 +84,13 @@ pub fn animate_character(
 /// Anytime the CharacterState change,
 /// force the sprite to match this change.
 pub fn jump_frame_player_state(
+    indices: Res<AnimationIndices>,
     mut query: Query<
-        (&AnimationIndices, &mut TextureAtlasSprite, &CharacterState),
+        (&mut TextureAtlasSprite, &CharacterState),
         (Or<(With<Player>, With<Boss>)>, Changed<CharacterState>),
     >,
 ) {
-    for (indices, mut sprite, player_state) in &mut query {
+    for (mut sprite, player_state) in &mut query {
         let indices = indices[&player_state];
         // Jump directly to the correct frame
         sprite.index = indices.0;
