@@ -10,13 +10,16 @@ edition = "2021"
 bevy = { version = "0.9", features = ["dynamic"] }
 
 # ----- Hitbox - Velocity -----
-bevy_rapier2d = { version = "0.19", features = ["simd-stable", "debug-render"] }
+bevy_rapier2d = { version = "0.20.0", features = ["simd-stable", "debug-render-2d"] }
 
 # ----- Map - Background ------
 bevy-parallax = "0.3"
 
 # ----------- Debug -----------
 bevy-inspector-egui = "0.15"
+
+image = "0.24"
+rand = "0.8"
 
 [profile.dev.package."*"]
 opt-level = 3
