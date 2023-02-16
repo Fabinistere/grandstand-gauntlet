@@ -3,10 +3,13 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::characters::{npcs::boss::Boss, player::Player, Invulnerable};
+use crate::{
+    characters::{npcs::boss::Boss, player::Player, Invulnerable},
+    collisions::CollisionEventExt,
+};
 
 /// DOC
-/// 
+///
 /// Happens when:
 ///   - character::npcs:::boss_attack
 ///     - actions
@@ -50,13 +53,13 @@ pub fn boss_attack(
         let entity_2 = collision_event.entities().1;
 
         if rapier_context.intersection_pair(entity_1, entity_2) == Some(true) {
-            match (boss_attack_sensor.get(e1), boss_attack_sensor.get(e2)) {
+            match (
+                boss_attack_sensor.get(entity_1),
+                boss_attack_sensor.get(entity_2),
+            ) {
                 // (Err(e1), Err(e2)) => continue,
-                (Ok((attack_sensor, boss)), Err(_)) | (Err(_), Ok((attack_sensor, boss))) => {
-
-                }
+                (Ok((attack_sensor, boss)), Err(_)) | (Err(_), Ok((attack_sensor, boss))) => {}
                 _ => continue,
-
             }
         }
     }

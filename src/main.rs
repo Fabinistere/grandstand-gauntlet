@@ -1,5 +1,6 @@
 pub mod camera;
 pub mod characters;
+pub mod collisions;
 pub mod constants;
 mod debug;
 mod locations;
