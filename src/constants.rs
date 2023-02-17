@@ -13,11 +13,8 @@ pub mod character {
     pub const CROWD_CHARACTER_Z: f32 = 2.5;
 
     pub mod player {
-        pub const BOTTOM_WHIP_POS_LEFT: (f32, f32, f32) = (-10., -5.5, 0.);
-        pub const FRONT_WHIP_POS_LEFT: (f32, f32, f32) = (-30., -3., 0.);
-
-        pub const BOTTOM_WHIP_POS_RIGHT: (f32, f32, f32) = (10., -5.5, 0.);
-        pub const FRONT_WHIP_POS_RIGHT: (f32, f32, f32) = (30., -3., 0.);
+        pub const BOTTOM_WHIP_POS: (f32, f32, f32) = (10., -5.5, 0.);
+        pub const FRONT_WHIP_POS: (f32, f32, f32) = (30., -3., 0.);
     }
 }
 

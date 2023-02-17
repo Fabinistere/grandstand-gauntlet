@@ -5,9 +5,7 @@ use crate::{
     camera::camera_follow,
     characters::movement::{MovementBundle, Speed},
     constants::character::{
-        player::{
-            BOTTOM_WHIP_POS_LEFT, BOTTOM_WHIP_POS_RIGHT, FRONT_WHIP_POS_LEFT, FRONT_WHIP_POS_RIGHT,
-        },
+        player::{BOTTOM_WHIP_POS, FRONT_WHIP_POS},
         CHAR_POSITION,
     },
 };
@@ -73,13 +71,7 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        let mut vel_x = x_axis as f32 * **speed;
-
-        if x_axis != 0 {
-            vel_x *= (std::f32::consts::PI / 4.).cos();
-        }
-
-        rb_vel.linvel.x = vel_x;
+        rb_vel.linvel.x = x_axis as f32 * **speed;
 
         // ---- Animation ----
 
@@ -92,21 +84,25 @@ fn player_movement(
 
         // ---- Direction ----
 
-        if (left && !texture_atlas_sprite.flip_x) || (right && texture_atlas_sprite.flip_x) {
+        if !(left && right)
+            && ((left && !texture_atlas_sprite.flip_x) || (right && texture_atlas_sprite.flip_x))
+        {
             flip_direction_event.send(FlipAttackSensor(player));
         }
 
         // look where they are going - in the direction
-        if right {
-            // if texture_atlas_sprite.flip_x {
-            //     flip_direction_event.send(FlipAttackSensor(player));
-            // }
-            texture_atlas_sprite.flip_x = false;
-        } else if left {
-            // if !texture_atlas_sprite.flip_x {
-            //     flip_direction_event.send(FlipAttackSensor(player));
-            // }
-            texture_atlas_sprite.flip_x = true;
+        if !(right && left) {
+            if right {
+                // if texture_atlas_sprite.flip_x {
+                //     flip_direction_event.send(FlipAttackSensor(player));
+                // }
+                texture_atlas_sprite.flip_x = false;
+            } else if left {
+                // if !texture_atlas_sprite.flip_x {
+                //     flip_direction_event.send(FlipAttackSensor(player));
+                // }
+                texture_atlas_sprite.flip_x = true;
+            }
         }
     }
 }
@@ -118,8 +114,8 @@ fn setup_player(
 ) {
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, (0, 4));
-    animation_indices.insert(CharacterState::Attack, (19, 23));
-    animation_indices.insert(CharacterState::SecondAttack, (24, 26));
+    animation_indices.insert(CharacterState::Attack, (19, 26)); // (19, 23)
+    animation_indices.insert(CharacterState::SecondAttack, (24, 26)); // (24, 26)
     animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
     animation_indices.insert(CharacterState::Charge, (15, 18));
     animation_indices.insert(CharacterState::Run, (5, 12));
@@ -163,7 +159,7 @@ fn setup_player(
             parent
                 .spawn((
                     SpatialBundle {
-                        transform: Transform::from_translation(BOTTOM_WHIP_POS_RIGHT.into()),
+                        transform: Transform::from_translation(BOTTOM_WHIP_POS.into()),
                         ..default()
                     },
                     AttackSensor,
@@ -184,7 +180,7 @@ fn setup_player(
             parent
                 .spawn((
                     SpatialBundle {
-                        transform: Transform::from_translation(FRONT_WHIP_POS_RIGHT.into()),
+                        transform: Transform::from_translation(FRONT_WHIP_POS.into()),
                         ..default()
                     },
                     AttackSensor,
@@ -194,8 +190,6 @@ fn setup_player(
                 .with_children(|parent| {
                     // Front Ball
                     parent.spawn((
-                        // Collider::segment(Vect::new(-50., 4.), Vect::new(-10., -10.)),
-                        // Transform::default(),
                         Collider::cuboid(20., 7.),
                         Transform::default(),
                         Sensor,
@@ -203,27 +197,5 @@ fn setup_player(
                         Name::new("Attack Hitbox: Sensor Front Ball"),
                     ));
                 });
-
-            // REFACTOR: Find a way to modify the transform of a sensor
-
-            // ------- RIGHT ------
-            // // Thin bottom Whip
-            // parent.spawn((
-            //     Collider::cuboid(21., 1.5),
-            //     Transform::from_translation(BOTTOM_WHIP_POS_RIGHT.into()),
-            //     // RigidBody::KinematicPositionBased,
-            //     Sensor,
-            //     AttackSensor,
-            //     Name::new("Attack Hitbox: Thin bottom Whip"),
-            // ));
-            // // Front Ball
-            // parent.spawn((
-            //     Collider::cuboid(20., 7.),
-            //     Transform::from_translation(FRONT_WHIP_POS_RIGHT.into()),
-            //     // RigidBody::KinematicPositionBased,
-            //     Sensor,
-            //     AttackSensor,
-            //     Name::new("Attack Hitbox: Front Ball"),
-            // ));
         });
 }
