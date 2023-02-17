@@ -106,7 +106,8 @@ pub fn move_parallax_system(
         move_event_writer.send(ParallaxMoveEvent {
             camera_move_speed: -0.5,
         });
-    } else if keyboard_input.pressed(KeyCode::Q)
+    }
+    if keyboard_input.pressed(KeyCode::Q)
         || keyboard_input.pressed(KeyCode::A)
         || keyboard_input.pressed(KeyCode::Left)
     {
