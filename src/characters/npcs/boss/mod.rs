@@ -12,15 +12,24 @@ use crate::{
     constants::character::CHAR_POSITION,
 };
 
-use self::movement::stare_player;
+use self::{
+    aggression::{BossSensor, BossAttackEvent, boss_close_detection, boss_attack_event_handler},
+    movement::stare_player,
+};
 
 pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app .add_startup_system(setup_boss)
+        app 
+            .add_startup_system(setup_boss)
             .add_system(stare_player)
+            // -- Aggression --
+            .add_event::<BossAttackEvent>()
+            .add_system(boss_close_detection)
+            .add_system(boss_attack_event_handler)
+            // .add_plugin(AggressionBossPlugin) 
             ;
     }
 }
@@ -35,11 +44,14 @@ fn setup_boss(
 ) {
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, (0, 4));
-    animation_indices.insert(CharacterState::Attack, (19, 26));
-    animation_indices.insert(CharacterState::SecondAttack, (24, 26));
-    animation_indices.insert(CharacterState::TransitionToCharge, (11, 14));
-    animation_indices.insert(CharacterState::Charge, (15, 18));
     animation_indices.insert(CharacterState::Run, (5, 10));
+    // Charge to Backhand
+    animation_indices.insert(CharacterState::TransitionToCharge, (11, 18)); //(11, 14)
+    // Backhand
+    animation_indices.insert(CharacterState::Charge, (15, 18));
+    // Powerfull Attack: Fallen angel
+    animation_indices.insert(CharacterState::Attack, (19, 26));
+    // animation_indices.insert(CharacterState::SecondAttack, (24, 26));
     animation_indices.insert(CharacterState::Hit, (27, 28));
     animation_indices.insert(CharacterState::Dead, (29, 34));
 
@@ -50,28 +62,49 @@ fn setup_boss(
 
     let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-    commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: texture_atlas_sprite,
-            transform: Transform::from_translation(CHAR_POSITION.into()),
-            ..default()
-        },
-        Boss,
-        Name::new("Boss"),
-        // -- Animation --
-        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-        CharacterState::Idle,
-        animation_indices,
-        // -- Hitbox --
-        RigidBody::Dynamic,
-        LockedAxes::ROTATION_LOCKED,
-        MovementBundle {
-            speed: Speed::default(),
-            velocity: Velocity {
-                linvel: Vect::ZERO,
-                angvel: 0.,
+    commands
+        .spawn((
+            SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle,
+                sprite: texture_atlas_sprite,
+                transform: Transform::from_translation(CHAR_POSITION.into()),
+                ..default()
             },
-        },
-    ));
+            Boss,
+            Name::new("Boss"),
+            // -- Animation --
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            animation_indices,
+            CharacterState::Idle,
+            // -- Hitbox --
+            RigidBody::Dynamic,
+            LockedAxes::ROTATION_LOCKED,
+            MovementBundle {
+                speed: Speed::default(),
+                velocity: Velocity {
+                    linvel: Vect::ZERO,
+                    angvel: 0.,
+                },
+            },
+        ))
+        .with_children(|parent| {
+            // Boss Hitbox
+            parent.spawn((
+                Collider::ball(12.),
+                // OFFSET_Y
+                Transform::from_translation((0., 5., 0.).into()),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+            ));
+
+            // Boss Attack Sensor
+            parent.spawn((
+                Collider::ball(40.),
+                // OFFSET_Y
+                Transform::from_translation((0., 5., 0.).into()),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                BossSensor,
+            ));
+        });
 }
