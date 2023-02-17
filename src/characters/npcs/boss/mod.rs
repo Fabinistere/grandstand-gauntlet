@@ -7,13 +7,14 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     characters::{
         animations::{AnimationIndices, AnimationTimer, CharacterState},
+        aggression::Hp,
         movement::{MovementBundle, Speed},
     },
-    constants::character::CHAR_POSITION,
+    constants::character::{CHAR_POSITION, boss::*, FRAME_TIME},
 };
 
 use self::{
-    aggression::{BossSensor, BossAttackEvent, boss_close_detection, boss_attack_event_handler},
+    aggression::{BossSensor, BossAttackEvent, boss_close_detection, boss_attack_event_handler, display_boss_hp},
     movement::stare_player,
 };
 
@@ -29,6 +30,7 @@ impl Plugin for BossPlugin {
             .add_event::<BossAttackEvent>()
             .add_system(boss_close_detection)
             .add_system(boss_attack_event_handler)
+            .add_system(display_boss_hp)
             // .add_plugin(AggressionBossPlugin) 
             ;
     }
@@ -43,17 +45,17 @@ fn setup_boss(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let mut animation_indices = AnimationIndices(HashMap::new());
-    animation_indices.insert(CharacterState::Idle, (0, 4));
-    animation_indices.insert(CharacterState::Run, (5, 10));
+    animation_indices.insert(CharacterState::Idle, BOSS_IDLE_FRAMES);
+    animation_indices.insert(CharacterState::Run, BOSS_RUN_FRAMES);
     // Charge to Backhand
-    animation_indices.insert(CharacterState::TransitionToCharge, (11, 18)); //(11, 14)
+    animation_indices.insert(CharacterState::TransitionToCharge, BOSS_TRANSITION_TO_CHARGE_FRAMES); //(11, 14)
     // Backhand
-    animation_indices.insert(CharacterState::Charge, (15, 18));
+    animation_indices.insert(CharacterState::Charge, BOSS_CHARGE_FRAMES);
     // Powerfull Attack: Fallen angel
-    animation_indices.insert(CharacterState::Attack, (19, 26));
-    // animation_indices.insert(CharacterState::SecondAttack, (24, 26));
-    animation_indices.insert(CharacterState::Hit, (27, 28));
-    animation_indices.insert(CharacterState::Dead, (29, 34));
+    animation_indices.insert(CharacterState::Attack, BOSS_FULL_ATTACK_FRAMES);
+    // animation_indices.insert(CharacterState::SecondAttack, BOSS_SECOND_ATTACK_FRAMES);
+    animation_indices.insert(CharacterState::Hit, BOSS_HIT_FRAMES);
+    animation_indices.insert(CharacterState::Dead, BOSS_DEAD_FRAMES);
 
     let texture_handle = asset_server.load("textures/character/magic_bot_spritesheet.png");
     let texture_atlas =
@@ -73,9 +75,11 @@ fn setup_boss(
             Boss,
             Name::new("Boss"),
             // -- Animation --
-            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Repeating)),
             animation_indices,
             CharacterState::Idle,
+            // -- Combat --
+            Hp::new(BOSS_HP),
             // -- Hitbox --
             RigidBody::Dynamic,
             LockedAxes::ROTATION_LOCKED,
@@ -90,18 +94,16 @@ fn setup_boss(
         .with_children(|parent| {
             // Boss Hitbox
             parent.spawn((
-                Collider::ball(12.),
-                // OFFSET_Y
-                Transform::from_translation((0., 5., 0.).into()),
+                Collider::ball(BOSS_HITBOX_SIZE),
+                Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
                 Sensor,
                 ActiveEvents::COLLISION_EVENTS,
             ));
 
             // Boss Attack Sensor
             parent.spawn((
-                Collider::ball(40.),
-                // OFFSET_Y
-                Transform::from_translation((0., 5., 0.).into()),
+                Collider::ball(BOSS_RANGE_HITBOX_SIZE),
+                Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
                 Sensor,
                 ActiveEvents::COLLISION_EVENTS,
                 BossSensor,

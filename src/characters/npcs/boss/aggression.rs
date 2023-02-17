@@ -5,12 +5,15 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
+        aggression::Hp,
+        // Invulnerable,
         animations::CharacterState,
         player::PlayerHitbox,
-        // Invulnerable,
     },
     collisions::CollisionEventExt,
 };
+
+use super::Boss;
 
 // pub struct AggressionBossPlugin;
 
@@ -24,7 +27,6 @@ use crate::{
 //     }
 // }
 
-/// DOC
 ///
 /// Happens when:
 ///   - character::npcs::boss::boss_close_detection
@@ -46,6 +48,18 @@ pub struct BossAttackEvent {
 
 #[derive(Component)]
 pub struct BossSensor;
+
+/// DEBUG: TEMPORARY
+///
+/// The Boss' hp won't be displayed.
+/// The current phase will indicate, as well as the clouds ?
+pub fn display_boss_hp(
+    bleeding_boss_query: Query<&Hp, (With<Boss>, Or<(Added<Hp>, Changed<Hp>)>)>,
+) {
+    if let Ok(boss_hp) = bleeding_boss_query.get_single() {
+        println!("boss's hp: {}/{}", boss_hp.current, boss_hp.max);
+    }
+}
 
 /// When the player enters the sensor
 /// The boss start to attack them

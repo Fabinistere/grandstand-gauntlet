@@ -3,8 +3,9 @@ use bevy::{prelude::*, utils::HashMap};
 use super::{npcs::boss::Boss, player::Player};
 use crate::crowd::CrowdMember;
 
-#[derive(Component, PartialEq, Eq, Hash, Clone)]
+#[derive(Default, Clone, Component, Eq, Hash, PartialEq)]
 pub enum CharacterState {
+    #[default]
     Idle,
     Attack,
     SecondAttack,
