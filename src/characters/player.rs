@@ -38,9 +38,10 @@ pub struct Player;
 
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
+    buttons: Res<Input<MouseButton>>,
     mut player_query: Query<(Entity, &mut CharacterState), With<Player>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Return) {
+    if keyboard_input.just_pressed(KeyCode::Return) || buttons.just_pressed(MouseButton::Left) {
         // info!("DEBUG: return pressed");
         // eprintln!("DEBUG: BOM");
         let (_player, mut state) = player_query.single_mut();
