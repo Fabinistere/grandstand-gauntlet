@@ -84,6 +84,16 @@ fn generate_crowd(
         let crowd_member_spacing = CROWD_SPAN * 2.0 / CROWD_SIZE as f32;
         let mut current_crowd_member_x = -CROWD_SPAN;
 
+        let parent = commands
+            .spawn((
+                Name::new("Crowd"),
+                GlobalTransform::default(),
+                Transform::default(),
+                ComputedVisibility::default(),
+                Visibility::default(),
+            ))
+            .id();
+
         for _ in 0..CROWD_SIZE {
             let image = image_handle.clone();
             let mut image_dynamic = image.try_into_dynamic().unwrap();
@@ -97,25 +107,27 @@ fn generate_crowd(
 
             let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-            commands.spawn((
-                SpriteSheetBundle {
-                    texture_atlas: texture_atlas_handle,
-                    sprite: texture_atlas_sprite,
-                    transform: Transform::from_translation(Vec3::new(
-                        current_crowd_member_x + rand.gen_range(-10.0..=10.0),
-                        -55.0,
-                        CROWD_CHARACTER_Z,
+            commands.entity(parent).with_children(|parent| {
+                parent.spawn((
+                    SpriteSheetBundle {
+                        texture_atlas: texture_atlas_handle,
+                        sprite: texture_atlas_sprite,
+                        transform: Transform::from_translation(Vec3::new(
+                            current_crowd_member_x + rand.gen_range(-10.0..=10.0),
+                            -55.0,
+                            CROWD_CHARACTER_Z,
+                        )),
+                        ..default()
+                    },
+                    CrowdMember,
+                    CharacterState::Idle,
+                    AnimationTimer(Timer::from_seconds(
+                        0.1 + rand.gen_range(-0.02..0.02),
+                        TimerMode::Repeating,
                     )),
-                    ..default()
-                },
-                CrowdMember,
-                CharacterState::Idle,
-                AnimationTimer(Timer::from_seconds(
-                    0.1 + rand.gen_range(-0.02..0.02),
-                    TimerMode::Repeating,
-                )),
-                animation_indices.clone(),
-            ));
+                    animation_indices.clone(),
+                ));
+            });
 
             current_crowd_member_x += crowd_member_spacing;
         }
