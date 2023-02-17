@@ -62,9 +62,22 @@ One can decide to cut the cycle by refusing the transfer, and say:
 
 If Time exists in our dimension:
 
+- [ ] Combat Map
+  - [ ] The more HP missing the HP have, the more dark and red, the clouds are.
 - [ ] Music
   - [ ] Start of Fight
   - [ ] End of Fight
+  - [ ] Boss Entry Scene
+  (Big badass, slow move: sick organ solo ?)
+  [Fallen Angel - Second Part](https://youtu.be/QjV-f-Ew-Bw?t=2978)
+  - [ ] Player Death (First Soul Shift)
+  (Suspense, Tragic, Slow)
+  [Fallen Angel - First Part](https://www.youtube.com/watch?v=QjV-f-Ew-Bw&t=2939~~s)
+  ["He Is the Light in My Darkness" - First Part](https://www.youtube.com/watch?v=QjV-f-Ew-Bw&t=1476s)
+  - [ ] Boss Fight - First Phase
+  (intense, loop)
+  [The Death of God's Will (incl. "Horns of Insurrection")](https://www.youtube.com/watch?v=QjV-f-Ew-Bw&t=3058s)
+  - [ ] Boss Fight - Second Phase (angier + tp)
 - [ ] SFX
   - [ ] Movement
   - [ ] Ambiance
