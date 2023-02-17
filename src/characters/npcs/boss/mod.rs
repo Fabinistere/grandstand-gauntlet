@@ -12,14 +12,18 @@ use crate::{
     constants::character::CHAR_POSITION,
 };
 
-use self::movement::stare_player;
+use self::{
+    aggression::{AggressionBossPlugin, BossSensor},
+    movement::stare_player,
+};
 
 pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app .add_startup_system(setup_boss)
+        app .add_plugin(AggressionBossPlugin)
+            .add_startup_system(setup_boss)
             .add_system(stare_player)
             ;
     }
@@ -50,28 +54,49 @@ fn setup_boss(
 
     let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-    commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: texture_atlas_sprite,
-            transform: Transform::from_translation(CHAR_POSITION.into()),
-            ..default()
-        },
-        Boss,
-        Name::new("Boss"),
-        // -- Animation --
-        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-        animation_indices,
-        CharacterState::Idle,
-        // -- Hitbox --
-        RigidBody::Dynamic,
-        LockedAxes::ROTATION_LOCKED,
-        MovementBundle {
-            speed: Speed::default(),
-            velocity: Velocity {
-                linvel: Vect::ZERO,
-                angvel: 0.,
+    commands
+        .spawn((
+            SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle,
+                sprite: texture_atlas_sprite,
+                transform: Transform::from_translation(CHAR_POSITION.into()),
+                ..default()
             },
-        },
-    ));
+            Boss,
+            Name::new("Boss"),
+            // -- Animation --
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            animation_indices,
+            CharacterState::Idle,
+            // -- Hitbox --
+            RigidBody::Dynamic,
+            LockedAxes::ROTATION_LOCKED,
+            MovementBundle {
+                speed: Speed::default(),
+                velocity: Velocity {
+                    linvel: Vect::ZERO,
+                    angvel: 0.,
+                },
+            },
+        ))
+        .with_children(|parent| {
+            // Boss Hitbox
+            parent.spawn((
+                Collider::ball(12.),
+                // OFFSET_Y
+                Transform::from_translation((0., 5., 0.).into()),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+            ));
+
+            // Boss Attack Sensor
+            parent.spawn((
+                Collider::ball(40.),
+                // OFFSET_Y
+                Transform::from_translation((0., 5., 0.).into()),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                BossSensor,
+            ));
+        });
 }

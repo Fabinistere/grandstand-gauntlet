@@ -28,6 +28,9 @@ impl Plugin for PlayerPlugin {
 #[derive(Component)]
 pub struct Player;
 
+#[derive(Component)]
+pub struct PlayerHitbox;
+
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
     mut player_query: Query<(Entity, &mut CharacterState), With<Player>>,
@@ -107,28 +110,42 @@ fn setup_player(
 
     let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-    commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: texture_atlas_sprite,
-            transform: Transform::from_translation(CHAR_POSITION.into()),
-            ..default()
-        },
-        Player,
-        Name::new("Player"),
-        // -- Animation --
-        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-        animation_indices,
-        CharacterState::Idle,
-        // -- Hitbox --
-        RigidBody::Dynamic,
-        LockedAxes::ROTATION_LOCKED,
-        MovementBundle {
-            speed: Speed::default(),
-            velocity: Velocity {
-                linvel: Vect::ZERO,
-                angvel: 0.,
+    commands
+        .spawn((
+            SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle,
+                sprite: texture_atlas_sprite,
+                transform: Transform::from_translation(CHAR_POSITION.into()),
+                ..default()
             },
-        },
-    ));
+            Player,
+            Name::new("Player"),
+            // -- Animation --
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            animation_indices,
+            CharacterState::Idle,
+            // -- Hitbox --
+            RigidBody::Dynamic,
+            LockedAxes::ROTATION_LOCKED,
+            MovementBundle {
+                speed: Speed::default(),
+                velocity: Velocity {
+                    linvel: Vect::ZERO,
+                    angvel: 0.,
+                },
+            },
+        ))
+        .with_children(|parent| {
+            // TODO: seperate the player Sensor to the player hitbox
+            // ^^^^^-------- Sensor that will trigger the boss attack
+            // Player Hitbox And Sensor
+            parent.spawn((
+                Collider::ball(12.),
+                // HITBOX_OFFSET_Y
+                Transform::from_translation((0., 2., 0.).into()),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                PlayerHitbox,
+            ));
+        });
 }
