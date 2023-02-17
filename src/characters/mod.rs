@@ -16,7 +16,8 @@ pub struct CharacterPlugin;
 impl Plugin for CharacterPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app .add_plugin(NPCsPlugin)
+        app 
+            // .add_plugin(NPCsPlugin)
             .add_plugin(PlayerPlugin)
             .add_plugin(AggressionPlugin)
             // -- Animation --

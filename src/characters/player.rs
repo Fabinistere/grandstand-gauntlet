@@ -8,6 +8,7 @@ use crate::{
         player::{BOTTOM_WHIP_POS, FRONT_WHIP_POS},
         CHAR_POSITION,
     },
+    crowd::CrowdMember,
 };
 
 use super::{
@@ -20,7 +21,9 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app .add_startup_system(setup_player)
+        app .add_event::<CreatePlayerEvent>()
+            .add_startup_system(spawn_first_player)
+            .add_system(create_player)
             // -- Camera --
             .add_system(camera_follow)
             // -- Aggression --
@@ -33,6 +36,9 @@ impl Plugin for PlayerPlugin {
 
 #[derive(Component)]
 pub struct Player;
+
+#[derive(Debug, Deref, DerefMut)]
+pub struct CreatePlayerEvent(pub Entity);
 
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
@@ -57,7 +63,7 @@ fn player_movement(
             &mut TextureAtlasSprite,
             &mut CharacterState,
         ),
-        With<Player>,
+        (With<Player>, Without<CrowdMember>),
     >,
     mut flip_direction_event: EventWriter<FlipAttackSensor>,
 ) {
@@ -107,21 +113,12 @@ fn player_movement(
     }
 }
 
-fn setup_player(
+fn spawn_first_player(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    mut create_player_event: EventWriter<CreatePlayerEvent>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    asset_server: Res<AssetServer>,
 ) {
-    let mut animation_indices = AnimationIndices(HashMap::new());
-    animation_indices.insert(CharacterState::Idle, (0, 4));
-    animation_indices.insert(CharacterState::Attack, (19, 26)); // (19, 23)
-    animation_indices.insert(CharacterState::SecondAttack, (24, 26)); // (24, 26)
-    animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
-    animation_indices.insert(CharacterState::Charge, (15, 18));
-    animation_indices.insert(CharacterState::Run, (5, 12));
-    animation_indices.insert(CharacterState::Hit, (27, 28));
-    animation_indices.insert(CharacterState::Dead, (29, 33));
-
     let texture_handle = asset_server.load("textures/character/character_spritesheet.png");
     let texture_atlas =
         TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
@@ -129,73 +126,95 @@ fn setup_player(
 
     let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-    commands
+    let player_entity = commands
         .spawn((
+            Player,
             SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle,
                 sprite: texture_atlas_sprite,
                 transform: Transform::from_translation(CHAR_POSITION.into()),
                 ..default()
             },
-            Player,
-            Name::new("Player"),
-            // -- Animation --
-            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-            CharacterState::Idle,
-            animation_indices,
-            // -- Hitbox --
-            RigidBody::Dynamic,
-            LockedAxes::ROTATION_LOCKED,
-            MovementBundle {
-                speed: Speed::default(),
-                velocity: Velocity {
-                    linvel: Vect::ZERO,
-                    angvel: 0.,
-                },
-            },
         ))
-        .with_children(|parent| {
-            // -- Attack Hitbox --
-            parent
-                .spawn((
-                    SpatialBundle {
-                        transform: Transform::from_translation(BOTTOM_WHIP_POS.into()),
-                        ..default()
-                    },
-                    AttackSensor,
-                    RigidBody::Dynamic,
-                    Name::new("Bottom Whip Parent"),
-                ))
-                .with_children(|parent| {
-                    // Thin bottom Whip
-                    parent.spawn((
-                        Collider::cuboid(21., 1.5),
-                        Transform::default(),
-                        Sensor,
-                        ActiveEvents::COLLISION_EVENTS,
-                        Name::new("Attack Hitbox: Sensor Bottom Whip"),
-                    ));
-                });
+        .id();
+    create_player_event.send(CreatePlayerEvent(player_entity));
+}
 
-            parent
-                .spawn((
-                    SpatialBundle {
-                        transform: Transform::from_translation(FRONT_WHIP_POS.into()),
-                        ..default()
+fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut commands: Commands) {
+    for CreatePlayerEvent(entity) in create_player_event.iter() {
+        let mut animation_indices = AnimationIndices(HashMap::new());
+        animation_indices.insert(CharacterState::Idle, (0, 4));
+        animation_indices.insert(CharacterState::Attack, (19, 26)); // (19, 23)
+        animation_indices.insert(CharacterState::SecondAttack, (24, 26)); // (24, 26)
+        animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
+        animation_indices.insert(CharacterState::Charge, (15, 18));
+        animation_indices.insert(CharacterState::Run, (5, 12));
+        animation_indices.insert(CharacterState::Hit, (27, 28));
+        animation_indices.insert(CharacterState::Dead, (29, 33));
+
+        commands
+            .entity(*entity)
+            .insert((
+                Player,
+                Name::new("Player"),
+                // -- Animation --
+                AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+                CharacterState::Idle,
+                animation_indices,
+                // -- Hitbox --
+                RigidBody::Dynamic,
+                LockedAxes::ROTATION_LOCKED,
+                MovementBundle {
+                    speed: Speed::default(),
+                    velocity: Velocity {
+                        linvel: Vect::ZERO,
+                        angvel: 0.,
                     },
-                    AttackSensor,
-                    RigidBody::Dynamic,
-                    Name::new("Parent Front Ball"),
-                ))
-                .with_children(|parent| {
-                    // Front Ball
-                    parent.spawn((
-                        Collider::cuboid(20., 7.),
-                        Transform::default(),
-                        Sensor,
-                        ActiveEvents::COLLISION_EVENTS,
-                        Name::new("Attack Hitbox: Sensor Front Ball"),
-                    ));
-                });
-        });
+                },
+            ))
+            .with_children(|parent| {
+                // -- Attack Hitbox --
+                parent
+                    .spawn((
+                        SpatialBundle {
+                            transform: Transform::from_translation(BOTTOM_WHIP_POS.into()),
+                            ..default()
+                        },
+                        AttackSensor,
+                        RigidBody::Dynamic,
+                        Name::new("Bottom Whip Parent"),
+                    ))
+                    .with_children(|parent| {
+                        // Thin bottom Whip
+                        parent.spawn((
+                            Collider::cuboid(21., 1.5),
+                            Transform::default(),
+                            Sensor,
+                            ActiveEvents::COLLISION_EVENTS,
+                            Name::new("Attack Hitbox: Sensor Bottom Whip"),
+                        ));
+                    });
+
+                parent
+                    .spawn((
+                        SpatialBundle {
+                            transform: Transform::from_translation(FRONT_WHIP_POS.into()),
+                            ..default()
+                        },
+                        AttackSensor,
+                        RigidBody::Dynamic,
+                        Name::new("Parent Front Ball"),
+                    ))
+                    .with_children(|parent| {
+                        // Front Ball
+                        parent.spawn((
+                            Collider::cuboid(20., 7.),
+                            Transform::default(),
+                            Sensor,
+                            ActiveEvents::COLLISION_EVENTS,
+                            Name::new("Attack Hitbox: Sensor Front Ball"),
+                        ));
+                    });
+            });
+    }
 }
