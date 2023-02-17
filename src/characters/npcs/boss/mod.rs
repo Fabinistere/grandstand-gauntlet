@@ -13,7 +13,7 @@ use crate::{
 };
 
 use self::{
-    aggression::{AggressionBossPlugin, BossSensor},
+    aggression::{BossSensor, BossAttackEvent, boss_close_detection, boss_attack_event_handler},
     movement::stare_player,
 };
 
@@ -22,9 +22,14 @@ pub struct BossPlugin;
 impl Plugin for BossPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app .add_plugin(AggressionBossPlugin)
+        app 
             .add_startup_system(setup_boss)
             .add_system(stare_player)
+            // -- Aggression --
+            .add_event::<BossAttackEvent>()
+            .add_system(boss_close_detection)
+            .add_system(boss_attack_event_handler)
+            // .add_plugin(AggressionBossPlugin) 
             ;
     }
 }
@@ -39,11 +44,14 @@ fn setup_boss(
 ) {
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, (0, 4));
-    animation_indices.insert(CharacterState::Attack, (19, 26));
-    animation_indices.insert(CharacterState::SecondAttack, (24, 26));
-    animation_indices.insert(CharacterState::TransitionToCharge, (11, 14));
-    animation_indices.insert(CharacterState::Charge, (15, 18));
     animation_indices.insert(CharacterState::Run, (5, 10));
+    // Charge to Backhand
+    animation_indices.insert(CharacterState::TransitionToCharge, (11, 18)); //(11, 14)
+    // Backhand
+    animation_indices.insert(CharacterState::Charge, (15, 18));
+    // Powerfull Attack: Fallen angel
+    animation_indices.insert(CharacterState::Attack, (19, 26));
+    // animation_indices.insert(CharacterState::SecondAttack, (24, 26));
     animation_indices.insert(CharacterState::Hit, (27, 28));
     animation_indices.insert(CharacterState::Dead, (29, 34));
 

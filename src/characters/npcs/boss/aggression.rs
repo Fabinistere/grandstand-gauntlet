@@ -6,37 +6,42 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     characters::{
         animations::CharacterState,
-        // npcs::boss::Boss,
         player::PlayerHitbox,
         // Invulnerable,
     },
     collisions::CollisionEventExt,
 };
 
-pub struct AggressionBossPlugin;
+// pub struct AggressionBossPlugin;
 
-impl Plugin for AggressionBossPlugin {
-    #[rustfmt::skip]
-    fn build(&self, app: &mut App) {
-        app .add_event::<BossAttackEvent>()
-            .add_system(boss_close_detection)
-            .add_system(boss_attack_event_handler)
-            ;
-    }
-}
+// impl Plugin for AggressionBossPlugin {
+//     #[rustfmt::skip]
+//     fn build(&self, app: &mut App) {
+//         app .add_event::<BossAttackEvent>()
+//             .add_system(boss_close_detection)
+//             .add_system(boss_attack_event_handler)
+//             ;
+//     }
+// }
 
 /// DOC
 ///
 /// Happens when:
 ///   - character::npcs::boss::boss_close_detection
 ///     - The player hitbox/Sensor enters the BossSensor
+///   - character::npcs::boss::???
+///     - The player hitbox/Sensor is still in the BossSensor
+///     They must be punished by sanding their bones.
 /// Read in
 ///   - character::npcs::boss::aggression::boss_attack_event_handler
 ///     - Launch an attack to the current facing direction
 ///     (cause they always look at the player)
+///
+/// # Note
+///
+/// Add target_entity: only if the wanted direction is different from current
 pub struct BossAttackEvent {
     attacker_entity: Entity,
-    // target_entity: Entity,
 }
 
 #[derive(Component)]
@@ -71,7 +76,6 @@ pub fn boss_close_detection(
     boss_attack_sensor_query: Query<(Entity, &Parent), (With<Sensor>, With<BossSensor>)>,
     player_sensor_query: Query<(Entity, &Parent), With<PlayerHitbox>>,
 
-    // mut boss_query: Query<Entity, With<Boss>>,
     mut boss_attack_event: EventWriter<BossAttackEvent>,
 ) {
     // TODO: Phase 1 - Sensor
@@ -92,17 +96,12 @@ pub fn boss_close_detection(
                 (Ok((_attack_sensor, boss)), Err(_), Err(_), Ok((_player_sensor, _player)))
                 | (Err(_), Ok((_attack_sensor, boss)), Ok((_player_sensor, _player)), Err(_)) => {
                     // IDEA: MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
+                    // ^^^^^------ With Dash/Death TP for example
 
                     // info!("DEBUG: Detected");
-
-                    // let boss_entity = boss_query.single_mut();
-                    // if boss_entity != **boss { // _potential
-                    //     warn!("BossSensor on something else than a Boss");
-                    //     break;
-                    // }
+                    // IDEA: add BAM_timer (each time it ends, sends a BossAttackEvent)
                     boss_attack_event.send(BossAttackEvent {
-                        attacker_entity: **boss, // boss_entity
-                                                 // target_entity: **player,
+                        attacker_entity: **boss,
                     });
                 }
                 _ => continue,
@@ -117,20 +116,15 @@ pub fn boss_close_detection(
     // TODO: Phase 3 - Player TP proof
 }
 
-fn boss_attack_event_handler(
+pub fn boss_attack_event_handler(
     mut boss_attack_event: EventReader<BossAttackEvent>,
     // If needed to check the Player Invulnerability state:
-    // Without<Invulnerable>
-    // player_query: Query<Entity, With<Player>>,
+    // player_query: Query<Entity, (With<Player>, Without<Invulnerable>)>,
 
     // &mut TextureAtlasSprite With<Boss>
     mut attacker_query: Query<&mut CharacterState>,
 ) {
-    for BossAttackEvent {
-        attacker_entity,
-        // target_entity,
-    } in boss_attack_event.iter()
-    {
+    for BossAttackEvent { attacker_entity } in boss_attack_event.iter() {
         match attacker_query.get_mut(*attacker_entity) {
             // DEBUG: (in the start of the game) / Every time a entity spawns, log the name + current identifier
             Err(e) => warn!(
@@ -138,7 +132,7 @@ fn boss_attack_event_handler(
                 *attacker_entity, e
             ),
             Ok(mut state) => {
-                *state = CharacterState::Attack;
+                *state = CharacterState::TransitionToCharge;
             }
         }
     }
