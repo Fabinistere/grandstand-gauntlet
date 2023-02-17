@@ -4,10 +4,16 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     camera::camera_follow,
     characters::movement::{MovementBundle, Speed},
-    constants::character::CHAR_POSITION,
+    constants::character::{
+        player::{BOTTOM_WHIP_POS, FRONT_WHIP_POS},
+        CHAR_POSITION,
+    },
 };
 
-use super::animations::{AnimationIndices, AnimationTimer, CharacterState};
+use super::{
+    aggression::{AttackSensor, FlipAttackSensor},
+    animations::{AnimationIndices, AnimationTimer, CharacterState},
+};
 
 pub struct PlayerPlugin;
 
@@ -30,10 +36,12 @@ pub struct Player;
 
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
+    buttons: Res<Input<MouseButton>>,
     mut player_query: Query<(Entity, &mut CharacterState), With<Player>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Return) {
+    if keyboard_input.just_pressed(KeyCode::Return) || buttons.just_pressed(MouseButton::Left) {
         // info!("DEBUG: return pressed");
+        // eprintln!("DEBUG: BOM");
         let (_player, mut state) = player_query.single_mut();
         *state = CharacterState::Attack;
     }
@@ -43,6 +51,7 @@ fn player_movement(
     keyboard_input: Res<Input<KeyCode>>,
     mut player_query: Query<
         (
+            Entity,
             &Speed,
             &mut Velocity,
             &mut TextureAtlasSprite,
@@ -50,8 +59,9 @@ fn player_movement(
         ),
         With<Player>,
     >,
+    mut flip_direction_event: EventWriter<FlipAttackSensor>,
 ) {
-    if let Ok((speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
+    if let Ok((player, speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
         player_query.get_single_mut()
     {
         let left = keyboard_input.pressed(KeyCode::Q)
@@ -61,13 +71,9 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        let mut vel_x = x_axis as f32 * **speed;
+        rb_vel.linvel.x = x_axis as f32 * **speed;
 
-        if x_axis != 0 {
-            vel_x *= (std::f32::consts::PI / 4.).cos();
-        }
-
-        rb_vel.linvel.x = vel_x;
+        // ---- Animation ----
 
         // if there is any movement
         if (left || right) && *player_state != CharacterState::Run {
@@ -76,11 +82,27 @@ fn player_movement(
             *player_state = CharacterState::Idle;
         }
 
+        // ---- Direction ----
+
+        if !(left && right)
+            && ((left && !texture_atlas_sprite.flip_x) || (right && texture_atlas_sprite.flip_x))
+        {
+            flip_direction_event.send(FlipAttackSensor(player));
+        }
+
         // look where they are going - in the direction
-        if right {
-            texture_atlas_sprite.flip_x = false;
-        } else if left {
-            texture_atlas_sprite.flip_x = true;
+        if !(right && left) {
+            if right {
+                // if texture_atlas_sprite.flip_x {
+                //     flip_direction_event.send(FlipAttackSensor(player));
+                // }
+                texture_atlas_sprite.flip_x = false;
+            } else if left {
+                // if !texture_atlas_sprite.flip_x {
+                //     flip_direction_event.send(FlipAttackSensor(player));
+                // }
+                texture_atlas_sprite.flip_x = true;
+            }
         }
     }
 }
@@ -92,8 +114,8 @@ fn setup_player(
 ) {
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, (0, 4));
-    animation_indices.insert(CharacterState::Attack, (19, 23));
-    animation_indices.insert(CharacterState::SecondAttack, (24, 26));
+    animation_indices.insert(CharacterState::Attack, (19, 26)); // (19, 23)
+    animation_indices.insert(CharacterState::SecondAttack, (24, 26)); // (24, 26)
     animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
     animation_indices.insert(CharacterState::Charge, (15, 18));
     animation_indices.insert(CharacterState::Run, (5, 12));
@@ -107,28 +129,73 @@ fn setup_player(
 
     let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-    commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: texture_atlas_sprite,
-            transform: Transform::from_translation(CHAR_POSITION.into()),
-            ..default()
-        },
-        Player,
-        Name::new("Player"),
-        // -- Animation --
-        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-        CharacterState::Idle,
-        animation_indices,
-        // -- Hitbox --
-        RigidBody::Dynamic,
-        LockedAxes::ROTATION_LOCKED,
-        MovementBundle {
-            speed: Speed::default(),
-            velocity: Velocity {
-                linvel: Vect::ZERO,
-                angvel: 0.,
+    commands
+        .spawn((
+            SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle,
+                sprite: texture_atlas_sprite,
+                transform: Transform::from_translation(CHAR_POSITION.into()),
+                ..default()
             },
-        },
-    ));
+            Player,
+            Name::new("Player"),
+            // -- Animation --
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            CharacterState::Idle,
+            animation_indices,
+            // -- Hitbox --
+            RigidBody::Dynamic,
+            LockedAxes::ROTATION_LOCKED,
+            MovementBundle {
+                speed: Speed::default(),
+                velocity: Velocity {
+                    linvel: Vect::ZERO,
+                    angvel: 0.,
+                },
+            },
+        ))
+        .with_children(|parent| {
+            // -- Attack Hitbox --
+            parent
+                .spawn((
+                    SpatialBundle {
+                        transform: Transform::from_translation(BOTTOM_WHIP_POS.into()),
+                        ..default()
+                    },
+                    AttackSensor,
+                    RigidBody::Dynamic,
+                    Name::new("Bottom Whip Parent"),
+                ))
+                .with_children(|parent| {
+                    // Thin bottom Whip
+                    parent.spawn((
+                        Collider::cuboid(21., 1.5),
+                        Transform::default(),
+                        Sensor,
+                        ActiveEvents::COLLISION_EVENTS,
+                        Name::new("Attack Hitbox: Sensor Bottom Whip"),
+                    ));
+                });
+
+            parent
+                .spawn((
+                    SpatialBundle {
+                        transform: Transform::from_translation(FRONT_WHIP_POS.into()),
+                        ..default()
+                    },
+                    AttackSensor,
+                    RigidBody::Dynamic,
+                    Name::new("Parent Front Ball"),
+                ))
+                .with_children(|parent| {
+                    // Front Ball
+                    parent.spawn((
+                        Collider::cuboid(20., 7.),
+                        Transform::default(),
+                        Sensor,
+                        ActiveEvents::COLLISION_EVENTS,
+                        Name::new("Attack Hitbox: Sensor Front Ball"),
+                    ));
+                });
+        });
 }

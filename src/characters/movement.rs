@@ -13,7 +13,7 @@ pub struct Speed(pub f32);
 
 impl Default for Speed {
     fn default() -> Self {
-        Speed(80. * TILE_SIZE)
+        Speed(50. * TILE_SIZE)
     }
 }
 

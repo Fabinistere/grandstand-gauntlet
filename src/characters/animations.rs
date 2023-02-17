@@ -40,43 +40,36 @@ pub fn animate_character(
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            let indices = indices[&character_state];
-            // REFACTOR: the limit being modified by magical number
-            let limit: usize;
-            let start_back: usize;
-            let state_when_restart: Option<CharacterState>;
+            let current_indices = indices[&character_state];
+            let next_phase: Option<CharacterState>;
 
-            if *character_state == CharacterState::Attack
+            if *character_state == CharacterState::Run
+                || *character_state == CharacterState::Attack
                 || *character_state == CharacterState::SecondAttack
             {
-                // Idle
-                start_back = 0;
-                state_when_restart = Some(CharacterState::Idle);
-                // End of SecondAttack
-                limit = 26;
-            } else if *character_state == CharacterState::Run {
-                // Idle
-                start_back = 0;
-                state_when_restart = Some(CharacterState::Idle);
-                // End of SecondAttack
-                limit = 12;
+                // Idle when stop running/attacking
+                next_phase = Some(CharacterState::Idle);
             } else {
                 // Loop
-                start_back = indices.0;
-                state_when_restart = None;
-                limit = indices.1;
+                next_phase = None;
+                // start_back = current_indices.0;
+                // limit = current_indices.1;
             }
 
-            if sprite.index == limit {
-                sprite.index = start_back;
-                // update state
-                match state_when_restart {
-                    Some(new_state) => *character_state = new_state,
-                    None => continue,
+            if sprite.index == current_indices.1 {
+                match next_phase {
+                    Some(new_state) => {
+                        sprite.index = indices[&new_state].0;
+                        // update state
+                        *character_state = new_state;
+                    }
+                    None => {
+                        sprite.index = current_indices.0;
+                    }
                 }
             } else {
                 sprite.index = sprite.index + 1
-            };
+            }
         }
     }
 }
