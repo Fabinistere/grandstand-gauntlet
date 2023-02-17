@@ -4,17 +4,26 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     camera::camera_follow,
     characters::movement::{MovementBundle, Speed},
-    constants::character::CHAR_POSITION,
+    constants::character::{
+        player::{BOTTOM_WHIP_POS, FRONT_WHIP_POS},
+        CHAR_POSITION,
+    },
+    crowd::CrowdMember,
 };
 
-use super::animations::{AnimationIndices, AnimationTimer, CharacterState};
+use super::{
+    aggression::{AttackSensor, FlipAttackSensor},
+    animations::{AnimationIndices, AnimationTimer, CharacterState},
+};
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app .add_startup_system(setup_player)
+        app .add_event::<CreatePlayerEvent>()
+            .add_startup_system(spawn_first_player)
+            .add_system(create_player)
             // -- Camera --
             .add_system(camera_follow)
             // -- Aggression --
@@ -31,12 +40,17 @@ pub struct Player;
 #[derive(Component)]
 pub struct PlayerHitbox;
 
+#[derive(Debug, Deref, DerefMut)]
+pub struct CreatePlayerEvent(pub Entity);
+
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
+    buttons: Res<Input<MouseButton>>,
     mut player_query: Query<(Entity, &mut CharacterState), With<Player>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Return) {
+    if keyboard_input.just_pressed(KeyCode::Return) || buttons.just_pressed(MouseButton::Left) {
         // info!("DEBUG: return pressed");
+        // eprintln!("DEBUG: BOM");
         let (_player, mut state) = player_query.single_mut();
         *state = CharacterState::Attack;
     }
@@ -46,15 +60,17 @@ fn player_movement(
     keyboard_input: Res<Input<KeyCode>>,
     mut player_query: Query<
         (
+            Entity,
             &Speed,
             &mut Velocity,
             &mut TextureAtlasSprite,
             &mut CharacterState,
         ),
-        With<Player>,
+        (With<Player>, Without<CrowdMember>),
     >,
+    mut flip_direction_event: EventWriter<FlipAttackSensor>,
 ) {
-    if let Ok((speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
+    if let Ok((player, speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
         player_query.get_single_mut()
     {
         let left = keyboard_input.pressed(KeyCode::Q)
@@ -64,13 +80,9 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        let mut vel_x = x_axis as f32 * **speed;
+        rb_vel.linvel.x = x_axis as f32 * **speed;
 
-        if x_axis != 0 {
-            vel_x *= (std::f32::consts::PI / 4.).cos();
-        }
-
-        rb_vel.linvel.x = vel_x;
+        // ---- Animation ----
 
         // if there is any movement
         if (left || right) && *player_state != CharacterState::Run {
@@ -79,30 +91,37 @@ fn player_movement(
             *player_state = CharacterState::Idle;
         }
 
+        // ---- Direction ----
+
+        if !(left && right)
+            && ((left && !texture_atlas_sprite.flip_x) || (right && texture_atlas_sprite.flip_x))
+        {
+            flip_direction_event.send(FlipAttackSensor(player));
+        }
+
         // look where they are going - in the direction
-        if right {
-            texture_atlas_sprite.flip_x = false;
-        } else if left {
-            texture_atlas_sprite.flip_x = true;
+        if !(right && left) {
+            if right {
+                // if texture_atlas_sprite.flip_x {
+                //     flip_direction_event.send(FlipAttackSensor(player));
+                // }
+                texture_atlas_sprite.flip_x = false;
+            } else if left {
+                // if !texture_atlas_sprite.flip_x {
+                //     flip_direction_event.send(FlipAttackSensor(player));
+                // }
+                texture_atlas_sprite.flip_x = true;
+            }
         }
     }
 }
 
-fn setup_player(
+fn spawn_first_player(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    mut create_player_event: EventWriter<CreatePlayerEvent>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    asset_server: Res<AssetServer>,
 ) {
-    let mut animation_indices = AnimationIndices(HashMap::new());
-    animation_indices.insert(CharacterState::Idle, (0, 4));
-    animation_indices.insert(CharacterState::Attack, (19, 23));
-    animation_indices.insert(CharacterState::SecondAttack, (24, 26));
-    animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
-    animation_indices.insert(CharacterState::Charge, (15, 18));
-    animation_indices.insert(CharacterState::Run, (5, 12));
-    animation_indices.insert(CharacterState::Hit, (27, 28));
-    animation_indices.insert(CharacterState::Dead, (29, 33));
-
     let texture_handle = asset_server.load("textures/character/character_spritesheet.png");
     let texture_atlas =
         TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
@@ -110,42 +129,107 @@ fn setup_player(
 
     let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-    commands
+    let player_entity = commands
         .spawn((
+            Player,
             SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle,
                 sprite: texture_atlas_sprite,
                 transform: Transform::from_translation(CHAR_POSITION.into()),
                 ..default()
             },
-            Player,
-            Name::new("Player"),
-            // -- Animation --
-            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-            animation_indices,
-            CharacterState::Idle,
-            // -- Hitbox --
-            RigidBody::Dynamic,
-            LockedAxes::ROTATION_LOCKED,
-            MovementBundle {
-                speed: Speed::default(),
-                velocity: Velocity {
-                    linvel: Vect::ZERO,
-                    angvel: 0.,
-                },
-            },
         ))
-        .with_children(|parent| {
-            // TODO: seperate the player Sensor to the player hitbox
-            // ^^^^^-------- Sensor that will trigger the boss attack
-            // Player Hitbox And Sensor
-            parent.spawn((
-                Collider::ball(12.),
-                // HITBOX_OFFSET_Y
-                Transform::from_translation((0., 2., 0.).into()),
-                Sensor,
-                ActiveEvents::COLLISION_EVENTS,
-                PlayerHitbox,
-            ));
-        });
+        .id();
+    create_player_event.send(CreatePlayerEvent(player_entity));
+}
+
+fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut commands: Commands) {
+    for CreatePlayerEvent(entity) in create_player_event.iter() {
+        let mut animation_indices = AnimationIndices(HashMap::new());
+        animation_indices.insert(CharacterState::Idle, (0, 4));
+        animation_indices.insert(CharacterState::Attack, (19, 26)); // (19, 23)
+        animation_indices.insert(CharacterState::SecondAttack, (24, 26)); // (24, 26)
+        animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
+        animation_indices.insert(CharacterState::Charge, (15, 18));
+        animation_indices.insert(CharacterState::Run, (5, 12));
+        animation_indices.insert(CharacterState::Hit, (27, 28));
+        animation_indices.insert(CharacterState::Dead, (29, 33));
+
+        commands
+            .entity(*entity)
+            .insert((
+                Player,
+                Name::new("Player"),
+                // -- Animation --
+                AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+                CharacterState::Idle,
+                animation_indices,
+                // -- Hitbox --
+                RigidBody::Dynamic,
+                LockedAxes::ROTATION_LOCKED,
+                MovementBundle {
+                    speed: Speed::default(),
+                    velocity: Velocity {
+                        linvel: Vect::ZERO,
+                        angvel: 0.,
+                    },
+                },
+            ))
+            .with_children(|parent| {
+                // -- Player Hitbox And Sensor --
+                // TODO: seperate the player Sensor to the player hitbox
+                // ^^^^^-------- Sensor that will trigger the boss attack
+                parent.spawn((
+                    Collider::ball(12.),
+                    // HITBOX_OFFSET_Y
+                    Transform::from_translation((0., 2., 0.).into()),
+                    Sensor,
+                    ActiveEvents::COLLISION_EVENTS,
+                    PlayerHitbox,
+                ));
+
+                // -- Attack Hitbox --
+                parent
+                    .spawn((
+                        SpatialBundle {
+                            transform: Transform::from_translation(BOTTOM_WHIP_POS.into()),
+                            ..default()
+                        },
+                        AttackSensor,
+                        RigidBody::Dynamic,
+                        Name::new("Bottom Whip Parent"),
+                    ))
+                    .with_children(|parent| {
+                        // Thin bottom Whip
+                        parent.spawn((
+                            Collider::cuboid(21., 1.5),
+                            Transform::default(),
+                            Sensor,
+                            ActiveEvents::COLLISION_EVENTS,
+                            Name::new("Attack Hitbox: Sensor Bottom Whip"),
+                        ));
+                    });
+
+                parent
+                    .spawn((
+                        SpatialBundle {
+                            transform: Transform::from_translation(FRONT_WHIP_POS.into()),
+                            ..default()
+                        },
+                        AttackSensor,
+                        RigidBody::Dynamic,
+                        Name::new("Parent Front Ball"),
+                    ))
+                    .with_children(|parent| {
+                        // Front Ball
+                        parent.spawn((
+                            Collider::cuboid(20., 7.),
+                            Transform::default(),
+                            Sensor,
+                            ActiveEvents::COLLISION_EVENTS,
+                            Name::new("Attack Hitbox: Sensor Front Ball"),
+                        ));
+                    });
+            });
+    }
 }

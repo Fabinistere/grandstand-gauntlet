@@ -1,9 +1,13 @@
+#![allow(clippy::type_complexity)]
+
 pub mod camera;
 pub mod characters;
 pub mod collisions;
 pub mod constants;
+mod crowd;
 mod debug;
 mod locations;
+mod soul_shift;
 
 use bevy::prelude::*;
 use bevy_parallax::{ParallaxCameraComponent, ParallaxPlugin};
@@ -46,6 +50,8 @@ fn main() {
         .add_plugin(LocationsPlugin)
         .add_plugin(CharacterPlugin)
         .add_plugin(DebugPlugin)
+        .add_plugin(crowd::CrowdPlugin)
+        .add_plugin(soul_shift::SoulShiftPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
