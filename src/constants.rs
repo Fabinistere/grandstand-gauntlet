@@ -10,7 +10,6 @@ pub const TILE_SIZE: f32 = 1.;
 pub mod character {
     pub const CHAR_Z: f32 = 10.;
     pub const CHAR_POSITION: (f32, f32, f32) = (0., -60., CHAR_Z);
-    pub const CROWD_CHARACTER_Z: f32 = 2.5;
 
     pub mod player {
         pub const BOTTOM_WHIP_POS: (f32, f32, f32) = (10., -5.5, 0.);
@@ -21,4 +20,6 @@ pub mod character {
 pub mod crowd {
     pub const CROWD_SIZE: usize = 50;
     pub const CROWD_SPAN: f32 = 1000.0;
+    pub const CROWD_Y: f32 = -55.0;
+    pub const CROWD_Z: f32 = 2.5;
 }
