@@ -7,8 +7,8 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     characters::{
         animations::{AnimationIndices, AnimationTimer, CharacterState},
-        aggression::Hp,
-        movement::{MovementBundle, Speed},
+        aggression::{Hp, AttackSensor, AttackHitbox},
+        movement::{MovementBundle, Speed, CharacterHitbox},
     },
     constants::character::{CHAR_POSITION, boss::*, FRAME_TIME},
 };
@@ -96,17 +96,48 @@ fn setup_boss(
             parent.spawn((
                 Collider::ball(BOSS_HITBOX_SIZE),
                 Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
+                CharacterHitbox,
                 Sensor,
-                ActiveEvents::COLLISION_EVENTS,
+                // ActiveEvents::COLLISION_EVENTS,
+                Name::new("Boss Hitbox"),
             ));
 
-            // Boss Attack Sensor
+            // Boss Attack Range Sensor
             parent.spawn((
                 Collider::ball(BOSS_RANGE_HITBOX_SIZE),
                 Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
+                BossSensor,
                 Sensor,
                 ActiveEvents::COLLISION_EVENTS,
-                BossSensor,
+                Name::new("Boss Attack Range"),
             ));
+
+            // -- Attack Hitbox --
+            // TODO: Active the sensor only for certain frame
+            parent
+                .spawn((
+                    SpatialBundle {
+                        transform: Transform::from_translation(FRONT_SMASH_POS.into()),
+                        ..default()
+                    },
+                    AttackSensor,
+                    RigidBody::Dynamic,
+                    Name::new("Parent Front"),
+                ))
+                .with_children(|parent| {
+                    // Front
+                    parent.spawn((
+                        // REFACTOR: Find a way to .into() a (f32, f32) tuple into a 2arguments function
+                        Collider::cuboid(
+                            BOSS_ATTACK_HITBOX_FRONT.0,
+                            BOSS_ATTACK_HITBOX_FRONT.1,
+                        ),
+                        Transform::default(),
+                        AttackHitbox(10),
+                        // CollisionGroups::new(0b0100.into(), 0b0010.into()),
+                        Sensor,
+                        Name::new("Attack Hitbox: Sensor Front"),
+                    ));
+                });
         });
 }

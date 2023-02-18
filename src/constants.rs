@@ -29,6 +29,7 @@ pub mod character {
         pub const PLAYER_RUN_FRAMES: (usize, usize) = (5, 12);
         pub const PLAYER_TRANSITION_TO_CHARGE_FRAMES: (usize, usize) = (13, 14);
         pub const PLAYER_CHARGE_FRAMES: (usize, usize) = (15, 18);
+        // TODO: Seperate Charge and Attack to perfectly activate the hitbox
         // First Swing: (19, 23)
         pub const PLAYER_FULL_ATTACK_FRAMES: (usize, usize) = (19, 26);
         pub const PLAYER_SECOND_ATTACK_FRAMES: (usize, usize) = (24, 26);
@@ -38,6 +39,12 @@ pub mod character {
 
     pub mod boss {
         pub const BOSS_HP: i32 = 1000;
+
+        pub const BOSS_SMASH_COOLDOWN: f32 = 5.;
+
+        pub const FRONT_SMASH_POS: (f32, f32, f32) = (10., -5.5, 0.);
+        pub const BOSS_ATTACK_HITBOX_FRONT: (f32, f32) = (20., 7.);
+
         pub const BOSS_HITBOX_SIZE: f32 = 12.;
         pub const BOSS_RANGE_HITBOX_SIZE: f32 = 40.;
         pub const BOSS_HITBOX_OFFSET_Y: (f32, f32, f32) = (0., 5., 0.);

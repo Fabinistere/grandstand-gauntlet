@@ -3,7 +3,7 @@ use bevy::{prelude::*, utils::HashMap};
 use super::{npcs::boss::Boss, player::Player};
 use crate::crowd::CrowdMember;
 
-#[derive(Default, Clone, Component, Eq, Hash, PartialEq)]
+#[derive(Default, Debug, Clone, Component, Eq, Hash, PartialEq)]
 pub enum CharacterState {
     #[default]
     Idle,
@@ -24,7 +24,7 @@ pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
 
 /// # Note
 ///
-/// REFACTOR: Crappy solution right there
+/// TODO: longer animation of "getting hit"
 pub fn animate_character(
     time: Res<Time>,
     mut query: Query<
@@ -48,8 +48,10 @@ pub fn animate_character(
                 || *character_state == CharacterState::Attack
                 || *character_state == CharacterState::SecondAttack
                 || *character_state == CharacterState::TransitionToCharge
+                || *character_state == CharacterState::Hit
             {
-                // Idle when stop running/attacking
+                // TODO: longer animation of "getting hit"
+                // Idle when stop running/attacking/getting hit
                 next_phase = Some(CharacterState::Idle);
             } else {
                 // Loop
@@ -84,7 +86,7 @@ pub fn jump_frame_player_state(
 ) {
     for (indices, mut sprite, player_state) in &mut query {
         let indices = indices[&player_state];
-        // Jump directly to the correct frame
+        // Jump directly to the correct frame when the state has changed
         sprite.index = indices.0;
     }
 }

@@ -9,8 +9,9 @@ use crate::{
 };
 
 use super::{
-    aggression::{AttackSensor, FlipAttackSensorEvent, Hp},
+    aggression::{AttackHitbox, AttackSensor, FlipAttackSensorEvent, Hp},
     animations::{AnimationIndices, AnimationTimer, CharacterState},
+    movement::CharacterHitbox,
 };
 
 pub struct PlayerPlugin;
@@ -188,9 +189,11 @@ fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut co
                 parent.spawn((
                     Collider::ball(PLAYER_HITBOX_SIZE),
                     Transform::from_translation(PLAYER_HITBOX_OFFSET_Y.into()),
-                    Sensor,
-                    ActiveEvents::COLLISION_EVENTS,
                     PlayerHitbox,
+                    CharacterHitbox,
+                    Sensor,
+                    // ActiveEvents::COLLISION_EVENTS,
+                    Name::new("Player Hitbox"),
                 ));
 
                 // -- Attack Hitbox --
@@ -203,7 +206,7 @@ fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut co
                         },
                         AttackSensor,
                         RigidBody::Dynamic,
-                        Name::new("Bottom Whip Parent"),
+                        Name::new("Parent Bottom Whip"),
                     ))
                     .with_children(|parent| {
                         // Thin bottom Whip
@@ -214,8 +217,8 @@ fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut co
                                 PLAYER_ATTACK_HITBOX_BOTTOM.1,
                             ),
                             Transform::default(),
+                            AttackHitbox(10),
                             Sensor,
-                            ActiveEvents::COLLISION_EVENTS,
                             Name::new("Attack Hitbox: Sensor Bottom Whip"),
                         ));
                     });
@@ -239,8 +242,8 @@ fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut co
                                 PLAYER_ATTACK_HITBOX_FRONT.1,
                             ),
                             Transform::default(),
+                            AttackHitbox(10),
                             Sensor,
-                            ActiveEvents::COLLISION_EVENTS,
                             Name::new("Attack Hitbox: Sensor Front Ball"),
                         ));
                     });
