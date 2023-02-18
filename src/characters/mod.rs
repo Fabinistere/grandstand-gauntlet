@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use self::{
     aggression::AggressionPlugin, animations::animate_character,
-    animations::jump_frame_player_state, npcs::NPCsPlugin, player::PlayerPlugin,
+    animations::jump_frame_player_state, player::PlayerPlugin, npcs::NPCsPlugin,
 };
 
 pub struct CharacterPlugin;
@@ -17,7 +17,7 @@ impl Plugin for CharacterPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
         app 
-            // .add_plugin(NPCsPlugin)
+            .add_plugin(NPCsPlugin)
             .add_plugin(PlayerPlugin)
             .add_plugin(AggressionPlugin)
             // -- Animation --

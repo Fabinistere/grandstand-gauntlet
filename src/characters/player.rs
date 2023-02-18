@@ -37,6 +37,9 @@ impl Plugin for PlayerPlugin {
 #[derive(Component)]
 pub struct Player;
 
+#[derive(Component)]
+pub struct PlayerHitbox;
+
 #[derive(Debug, Deref, DerefMut)]
 pub struct CreatePlayerEvent(pub Entity);
 
@@ -173,6 +176,18 @@ fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut co
                 },
             ))
             .with_children(|parent| {
+                // -- Player Hitbox And Sensor --
+                // TODO: seperate the player Sensor to the player hitbox
+                // ^^^^^-------- Sensor that will trigger the boss attack
+                parent.spawn((
+                    Collider::ball(12.),
+                    // HITBOX_OFFSET_Y
+                    Transform::from_translation((0., 2., 0.).into()),
+                    Sensor,
+                    ActiveEvents::COLLISION_EVENTS,
+                    PlayerHitbox,
+                ));
+
                 // -- Attack Hitbox --
                 parent
                     .spawn((
