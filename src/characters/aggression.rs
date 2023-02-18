@@ -11,6 +11,8 @@ use crate::{
     }
 };
 
+use super::player::PlayerHitbox;
+
 pub struct AggressionPlugin;
 
 impl Plugin for AggressionPlugin {
@@ -132,41 +134,62 @@ fn damage_hit(
     mut collision_events: EventReader<CollisionEvent>,
     rapier_context: Res<RapierContext>,
     
-    attack_hitbox_query: Query<(&AttackHitbox, &Parent), (With<Sensor>, With<ActiveEvents>)>,
-    character_hitbox_query: Query<(Entity, &Parent), With<CharacterHitbox>>,
+    attack_hitbox_query: Query<(Entity, &AttackHitbox, &Parent), (With<Sensor>, With<ActiveEvents>)>,
+    character_hitbox_query: Query<(Entity, &Parent), (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
     mut target_query: Query<&mut Hp, Without<Invulnerable>>,
 ) {
-    for collision_event in collision_events.iter() {
-        let entity_1 = collision_event.entities().0;
-        let entity_2 = collision_event.entities().1;
-
-        // REFACTOR: This intersection_pair doesn't care about ActiveEvent
-        // ^^^^^^^^^-------------- We need to query the attack_hitbox with ActiveEvent
-        // BUG: This method only allow dmg when enter the hitbox while it's attacking
-        if rapier_context.intersection_pair(entity_1, entity_2) == Some(true) {
-            match (attack_hitbox_query.get(entity_1), attack_hitbox_query.get(entity_2), character_hitbox_query.get(entity_1), character_hitbox_query.get(entity_2)) {
-                // A AtatckHitbox and a CharacterHitbox is involved
-                (Ok((attack_hitbox, _attacker)), Err(_), Err(_), Ok((_character_hitbox, target)))
-                | (Err(_), Ok((attack_hitbox, _attacker)), Ok((_character_hitbox, target)), Err(_)) => {
-                    match target_query.get_mut(**target) {
-                        Err(e) => warn!("No HP Component in the targeted entity: {:?}", e),
-                        Ok(mut hp) => {
-                            if hp.current <= attack_hitbox.0 {
-                                hp.current = 0;
-                                // TODO: send Death Event
-                            } else {
-                                hp.current -= attack_hitbox.0;
-                            }
+    // REFACTOR: IF THE PLAYER attack in the same moment this if will be false (multiple entities)
+    // and doen't work for the player attack
+    if let Ok((attack_hitbox_entity, attack_hitbox, _attacker)) = attack_hitbox_query.get_single() {
+        // TODO: Getting hit makes you invulnerable
+        // ATM tou're getting OS
+        if let Ok((character_hitbox, target)) = character_hitbox_query.get_single() {
+            if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
+                match target_query.get_mut(**target) {
+                    Err(e) => warn!("No HP Component in the targeted entity: {:?}", e),
+                    Ok(mut hp) => {
+                        if hp.current <= attack_hitbox.0 {
+                            hp.current = 0;
+                            // TODO: send Death Event
+                        } else {
+                            hp.current -= attack_hitbox.0;
                         }
                     }
                 }
-                // There is no attack_hitbox/character_hitbox involved
-                _ => continue,
-
             }
-        }
+        } else { info!("No PlayerHitbox") }
     }
+    // for collision_event in collision_events.iter() {
+    //     let entity_1 = collision_event.entities().0;
+    //     let entity_2 = collision_event.entities().1;
+
+    //     // REFACTOR: This intersection_pair doesn't care about ActiveEvent
+    //     // ^^^^^^^^^-------------- We need to query the attack_hitbox with ActiveEvent
+    //     // BUG: This method only allow dmg when enter the hitbox while it's attacking
+    //     if rapier_context.intersection_pair(entity_1, entity_2) == Some(true) {
+    //         match (attack_hitbox_query.get(entity_1), attack_hitbox_query.get(entity_2), character_hitbox_query.get(entity_1), character_hitbox_query.get(entity_2)) {
+    //             // A AtatckHitbox and a CharacterHitbox is involved
+    //             (Ok((attack_hitbox, _attacker)), Err(_), Err(_), Ok((_character_hitbox, target)))
+    //             | (Err(_), Ok((attack_hitbox, _attacker)), Ok((_character_hitbox, target)), Err(_)) => {
+    //                 match target_query.get_mut(**target) {
+    //                     Err(e) => warn!("No HP Component in the targeted entity: {:?}", e),
+    //                     Ok(mut hp) => {
+    //                         if hp.current <= attack_hitbox.0 {
+    //                             hp.current = 0;
+    //                             // TODO: send Death Event
+    //                         } else {
+    //                             hp.current -= attack_hitbox.0;
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //             // There is no attack_hitbox/character_hitbox involved
+    //             _ => continue,
+
+    //         }
+    //     }
+    // }
 }
 
 /// Activate when the character is on animation phase Attack,
