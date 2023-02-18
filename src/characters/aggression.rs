@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    collisions::CollisionEventExt,
+    // collisions::CollisionEventExt,
     characters::{
         animations::CharacterState,
         movement::CharacterHitbox,
@@ -131,7 +131,7 @@ fn cooldown_timer(
 /// 
 /// Send a Death Event if it's too much...
 fn damage_hit(
-    mut collision_events: EventReader<CollisionEvent>,
+    // mut collision_events: EventReader<CollisionEvent>,
     rapier_context: Res<RapierContext>,
     
     attack_hitbox_query: Query<(Entity, &AttackHitbox, &Parent), (With<Sensor>, With<ActiveEvents>)>,
@@ -143,7 +143,7 @@ fn damage_hit(
     // and doen't work for the player attack
     if let Ok((attack_hitbox_entity, attack_hitbox, _attacker)) = attack_hitbox_query.get_single() {
         // TODO: Getting hit makes you invulnerable
-        // ATM tou're getting OS
+        // ATM you're getting OS
         if let Ok((character_hitbox, target)) = character_hitbox_query.get_single() {
             if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
                 match target_query.get_mut(**target) {
