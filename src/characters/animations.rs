@@ -46,14 +46,13 @@ pub fn animate_character(
             if *character_state == CharacterState::Run
                 || *character_state == CharacterState::Attack
                 || *character_state == CharacterState::SecondAttack
+                || *character_state == CharacterState::TransitionToCharge
             {
                 // Idle when stop running/attacking
                 next_phase = Some(CharacterState::Idle);
             } else {
                 // Loop
                 next_phase = None;
-                // start_back = current_indices.0;
-                // limit = current_indices.1;
             }
 
             if sprite.index == current_indices.1 {
