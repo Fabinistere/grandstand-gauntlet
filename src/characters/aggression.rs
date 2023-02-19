@@ -29,16 +29,21 @@ impl Plugin for AggressionPlugin {
             .add_system(invulnerability_timer.label("Invulnerability Timer"))
             .add_system(cooldown_timer.label("Cooldown Timer"))
             .add_system(player_attack_hitbox_activation.label("Player Attack Hitbox Activation"))
-            // .add_system(
-            //     attack_collision
-            //         .label("Attack Collision")
-            //         .after("Player Attack Hitbox Activation")
-            //         .after("Boss Attack Hitbox Activation")
-            //         .after(start_soul_shift)
-            // )
+            .add_system(
+                attack_collision
+                    .label("Attack Collision")
+                    .after("Player Attack Hitbox Activation")
+                    .after("Boss Attack Hitbox Activation")
+                    .after(start_soul_shift)
+            )
             .add_system(bam_the_player.label("Bam The Player"))
-            // .after("Attack Collision")
-            .add_system(damage_hit.label("Damage Hit").after(start_soul_shift).after("Bam The Player"))
+            .add_system(
+                damage_hit
+                    .label("Damage Hit")
+                    .after(start_soul_shift)
+                    .after("Bam The Player")
+                    .after("Attack Collision")
+            )
             ;
     }
 }
@@ -253,12 +258,11 @@ fn bam_the_player(
 
 // REFACTOR: ALL AGGRESSION COLLISION
 
-/// Inflicts Damage (contains within the attack hitbox) to the touched entity.
-fn _attack_collision(
+/// Detected non self-harm touches.
+fn attack_collision(
     // mut collision_events: EventReader<CollisionEvent>,
     rapier_context: Res<RapierContext>,
     
-    soul_shifter_query: Query<Entity, With<SoulShifting>>,
     attack_hitbox_query: Query<(Entity, &Parent), (With<Sensor>, With<AttackHitbox>, With<ActiveEvents>)>,
     character_hitbox_query: Query<(Entity, &Parent), With<CharacterHitbox>>,
 
@@ -270,40 +274,36 @@ fn _attack_collision(
     mut damage_hit_event: EventWriter<DamageHitEvent>,
 ) {
     // OPTIMIZE: Querying all attack hitbox then all character hitbox is not very efficient
-    // REFACTOR: Don't Execute if there is a SoulShifter left
-    if soul_shifter_query.is_empty() {
-        for (attack_hitbox_entity, parent_hitbox) in attack_hitbox_query.iter() {
-            for (character_hitbox, target) in character_hitbox_query.iter() {
-
-                match target_query.get(**target) {
-                    // The target is invulnerable
-                    Err(_) => continue,
-                    Ok(_) => {
-                        if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
-                            match attack_sensor_query.get(**parent_hitbox) {
-                                Err(e) => warn!("The attackHitbox's hierarchy is invalid: {:?}", e),
-                                Ok((_, attacker)) => {
-                                    if **attacker != **target {
-                                        damage_hit_event.send(DamageHitEvent {
-                                            attack_hitbox: attack_hitbox_entity,
-                                            target: **target
-                                        });
-                                        info!("Damage Hit Event !");
-                                    }
+    for (attack_hitbox_entity, parent_hitbox) in attack_hitbox_query.iter() {
+        for (character_hitbox, target) in character_hitbox_query.iter() {
+            match target_query.get(**target) {
+                // The target is invulnerable
+                Err(_) => continue,
+                Ok(_) => {
+                    if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
+                        match attack_sensor_query.get(**parent_hitbox) {
+                            Err(e) => warn!("The attackHitbox's hierarchy is invalid: {:?}", e),
+                            Ok((_, attacker)) => {
+                                if **attacker != **target {
+                                    damage_hit_event.send(DamageHitEvent {
+                                        attack_hitbox: attack_hitbox_entity,
+                                        target: **target
+                                    });
+                                    info!("Damage Hit Event !");
                                 }
                             }
                         }
-        
                     }
+    
                 }
             }
         }
     }
 }
 
-/// DOC
+/// Inflicts Damage (contains within the attack hitbox) to the touched entity.
 /// 
-/// Send a Death Event if it's too much...
+/// Send a ~~Death Event~~ Soul Shift Event if it's too much...
 fn damage_hit(
     mut damage_hit_event: EventReader<DamageHitEvent>,
     
@@ -313,6 +313,8 @@ fn damage_hit(
     attack_hitbox_query: Query<&AttackHitbox, With<Sensor>>,
     mut target_query: Query<&mut Hp, (Without<Invulnerable>, Without<SoulShifting>, Without<CrowdMember>)>,
     
+    player_query: Query<Entity, With<Player>>,
+
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
 ) {
     for DamageHitEvent {attack_hitbox, target} in damage_hit_event.iter() {
@@ -329,11 +331,18 @@ fn damage_hit(
                 if hp.current <= attack_damage.0 {
                     hp.current = 0;
                     info!("Lethal Damage!");
-                    // TODO: send Player Death Event when the player die
-                    // atm all dying entity will trigger the soul shift/kill the player
-                    // commands.entity(*target).insert(SoulShifting);
-                    soul_shift_event.send(SoulShiftEvent);
-                    // TODO: Boss Death Event
+
+                    match player_query.get(*target) {
+                        Err(_) => {
+                            // TODO: Boss Death Event
+                        }
+                        Ok(_) => {
+                            // TODO: send Player Death Event when the player die
+                            // atm all dying entity will trigger the soul shift/kill the player
+                            // commands.entity(*target).insert(SoulShifting);
+                            soul_shift_event.send(SoulShiftEvent(*target));
+                        }
+                    }
                 } else {
                     hp.current -= attack_damage.0;
                     // TODO: Seperate player and boss gestion of getting hit
