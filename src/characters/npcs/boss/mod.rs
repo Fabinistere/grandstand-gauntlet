@@ -39,6 +39,9 @@ impl Plugin for BossPlugin {
 #[derive(Component)]
 pub struct Boss;
 
+#[derive(Component)]
+pub struct BossAttack;
+
 fn setup_boss(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -138,6 +141,7 @@ fn setup_boss(
                         ),
                         Transform::default(),
                         AttackHitbox(10),
+                        BossAttack,
                         // CollisionGroups::new(0b0100.into(), 0b0010.into()),
                         Sensor,
                         Name::new("Attack Hitbox: Sensor Front"),

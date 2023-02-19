@@ -107,8 +107,6 @@ pub fn boss_close_detection(
                 // IDEA: MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
                 // ^^^^^------ With Dash/Death TP for example
 
-                // info!("DEBUG: Detected");
-                // IDEA: add BAM_timer (each time it ends, sends a BossAttackEvent)
                 boss_attack_event.send(BossAttackEvent {
                     attacker_entity: **boss,
                 });
@@ -130,8 +128,6 @@ pub fn boss_attack_event_handler(
     mut boss_attack_event: EventReader<BossAttackEvent>,
     // If needed to check the Player Invulnerability state:
     // player_query: Query<Entity, (With<Player>, Without<Invulnerable>)>,
-
-    // &mut TextureAtlasSprite With<Boss>
     mut attacker_query: Query<&mut CharacterState>,
 ) {
     for BossAttackEvent { attacker_entity } in boss_attack_event.iter() {
@@ -142,7 +138,7 @@ pub fn boss_attack_event_handler(
                 *attacker_entity, e
             ),
             Ok(mut state) => {
-                *state = CharacterState::TransitionToCharge;
+                *state = CharacterState::Attack;
             }
         }
     }

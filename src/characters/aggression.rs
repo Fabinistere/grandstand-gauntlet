@@ -11,6 +11,8 @@ use crate::{
     }, soul_shift::{SoulShiftEvent, SoulShifting, start_soul_shift}, crowd::CrowdMember
 };
 
+use super::npcs::boss::BossAttack;
+
 pub struct AggressionPlugin;
 
 impl Plugin for AggressionPlugin {
@@ -26,8 +28,10 @@ impl Plugin for AggressionPlugin {
             .add_system(invulnerability_timer.label("Invulnerability Timer"))
             .add_system(cooldown_timer.label("Cooldown Timer"))
             .add_system(attack_hitbox_activation.label("Attack Hitbox Activation"))
-            .add_system(attack_collision.label("Attack Collision").after("Attack Hitbox Activation").after(start_soul_shift))
-            .add_system(damage_hit.label("Damage Hit").after("Attack Collision").after(start_soul_shift))
+            // .add_system(attack_collision.label("Attack Collision").after("Attack Hitbox Activation").after(start_soul_shift))
+            .add_system(bam_the_player.label("Bam The Player"))
+            // .after("Attack Collision")
+            .add_system(damage_hit.label("Damage Hit").after(start_soul_shift).after("Bam The Player"))
             ;
     }
 }
@@ -196,8 +200,27 @@ fn cooldown_timer(
 
         if cooldown.just_finished() {
             commands
-            .entity(character)
-            .remove::<AttackCooldown>();
+                .entity(character)
+                .remove::<AttackCooldown>();
+        }
+    }
+}
+
+fn bam_the_player(
+    keyboard_input: Res<Input<KeyCode>>,
+    player_query: Query<Entity, (With<Player>, Without<Invulnerable>)>,
+    boss_attack_hitbox: Query<Entity, (With<BossAttack>, With<AttackHitbox>)>,
+
+    mut damage_hit_event: EventWriter<DamageHitEvent>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        if let Ok(player) = player_query.get_single() {
+            info!("Bam dans ta gueule !");
+            let attack_hitbox = boss_attack_hitbox.single();
+            damage_hit_event.send(DamageHitEvent {
+                attack_hitbox,
+                target: player
+            });
         }
     }
 }
@@ -209,6 +232,7 @@ fn attack_collision(
     // mut collision_events: EventReader<CollisionEvent>,
     rapier_context: Res<RapierContext>,
     
+    soul_shifter_query: Query<Entity, With<SoulShifting>>,
     attack_hitbox_query: Query<(Entity, &Parent), (With<Sensor>, With<AttackHitbox>, With<ActiveEvents>)>,
     character_hitbox_query: Query<(Entity, &Parent), With<CharacterHitbox>>,
 
@@ -217,19 +241,18 @@ fn attack_collision(
     // vv-- They has as child a attackHitbox which inherit their transform
     attack_sensor_query: Query<(Entity, &Parent), With<AttackSensor>>,
 
-    soul_shifter_query: Query<Entity, With<SoulShifting>>,
     mut damage_hit_event: EventWriter<DamageHitEvent>,
 ) {
     // OPTIMIZE: Querying all attack hitbox then all character hitbox is not very efficient
-    for (attack_hitbox_entity, parent_hitbox) in attack_hitbox_query.iter() {
-        for (character_hitbox, target) in character_hitbox_query.iter() {
+    // REFACTOR: Don't Execute if there is a SoulShifter left
+    if soul_shifter_query.is_empty() {
+        for (attack_hitbox_entity, parent_hitbox) in attack_hitbox_query.iter() {
+            for (character_hitbox, target) in character_hitbox_query.iter() {
 
-            match target_query.get(**target) {
-                // The target is invulnerable
-                Err(_) => continue,
-                Ok(_) => {
-                    // REFACTOR: Don't Execute if there is a SoulShifter left
-                    if soul_shifter_query.is_empty() {
+                match target_query.get(**target) {
+                    // The target is invulnerable
+                    Err(_) => continue,
+                    Ok(_) => {
                         if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
                             match attack_sensor_query.get(**parent_hitbox) {
                                 Err(e) => warn!("The attackHitbox's hierarchy is invalid: {:?}", e),
