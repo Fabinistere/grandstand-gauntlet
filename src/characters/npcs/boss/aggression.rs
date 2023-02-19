@@ -5,7 +5,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        aggression::{AttackCooldown, Hp},
+        aggression::{AttackCooldown, AttackHitbox, AttackSensor, Hp},
         // Invulnerable,
         animations::CharacterState,
         movement::CharacterHitbox,
@@ -15,7 +15,7 @@ use crate::{
     constants::character::boss::BOSS_SMASH_COOLDOWN,
 };
 
-use super::Boss;
+use super::{Boss, BossAttackFalleAngel, BossAttackSmash};
 
 // pub struct AggressionBossPlugin;
 
@@ -139,6 +139,73 @@ pub fn boss_attack_event_handler(
             ),
             Ok(mut state) => {
                 *state = CharacterState::Attack;
+            }
+        }
+    }
+}
+
+/// Activate when the character is on animation phase Attack,
+/// Deactivate else.
+pub fn boss_attack_hitbox_activation(
+    mut commands: Commands,
+
+    boss_query: Query<(&CharacterState, &Children, &Name), (Changed<CharacterState>, With<Boss>)>,
+    parent_hitbox_position_query: Query<(Entity, &Children), With<AttackSensor>>,
+
+    // All Kind of Boss Attack
+    smash_hitbox_query: Query<Entity, (With<AttackHitbox>, With<BossAttackSmash>, With<Sensor>)>,
+    fallen_angel_hitbox_query: Query<
+        Entity,
+        (With<AttackHitbox>, With<BossAttackFalleAngel>, With<Sensor>),
+    >,
+) {
+    for (character_state, children, _name) in boss_query.iter() {
+        // info!("DEBUG: {} Changed {:?}", name, *character_state);
+        for child in children.iter() {
+            match parent_hitbox_position_query.get(*child) {
+                Err(_) => continue,
+                // The parent Hitbox contains the modifiable transform
+                // for all their hitbox children
+                Ok((_parent_hitbox, hitbox_children)) => {
+                    for hitbox_child in hitbox_children.iter() {
+                        // OPTIMIZE: Hitbox Activation - This statement will be called a bit too much
+                        // vv-- to just see uncomment the two DEBUG info below --vv
+
+                        // Just activate the good group of AttackHitbox (Smash or FallenAngel)
+                        match (
+                            smash_hitbox_query.get(*hitbox_child),
+                            fallen_angel_hitbox_query.get(*hitbox_child),
+                        ) {
+                            (Ok(Smash), Err(_)) => {
+                                if *character_state == CharacterState::Attack {
+                                    // info!("DEBUG: Smash Active Inserted on {}", _name);
+                                    commands
+                                        .entity(Smash)
+                                        .insert(ActiveEvents::COLLISION_EVENTS);
+                                } else {
+                                    // info!("DEBUG: Smash Active Removed on {}", _name);
+                                    commands.entity(Smash).remove::<ActiveEvents>();
+                                }
+                            }
+                            (Err(_), Ok(fallen_angel)) => {
+                                if *character_state == CharacterState::SecondAttack {
+                                    // info!("DEBUG: Fallen Angel Active Inserted on {}", _name);
+                                    commands
+                                        .entity(fallen_angel)
+                                        .insert(ActiveEvents::COLLISION_EVENTS);
+                                } else {
+                                    // info!("DEBUG: Fallen Angel Active Removed on {}", _name);
+                                    commands.entity(fallen_angel).remove::<ActiveEvents>();
+                                }
+                            }
+                            (Err(_), Err(_)) => warn!("Non Indexed Attack (Smash or Fallen Angel)"),
+                            (Ok(_), Ok(_)) => {
+                                warn!("Attack indexed twice (Smash and Fallen Angel)")
+                            }
+                        }
+                        // match attack_hitbox_query.get(*child)
+                    }
+                }
             }
         }
     }

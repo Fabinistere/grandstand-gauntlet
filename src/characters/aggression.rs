@@ -28,8 +28,14 @@ impl Plugin for AggressionPlugin {
             .add_event::<DamageHitEvent>()
             .add_system(invulnerability_timer.label("Invulnerability Timer"))
             .add_system(cooldown_timer.label("Cooldown Timer"))
-            .add_system(attack_hitbox_activation.label("Attack Hitbox Activation"))
-            // .add_system(attack_collision.label("Attack Collision").after("Attack Hitbox Activation").after(start_soul_shift))
+            .add_system(player_attack_hitbox_activation.label("Player Attack Hitbox Activation"))
+            // .add_system(
+            //     attack_collision
+            //         .label("Attack Collision")
+            //         .after("Player Attack Hitbox Activation")
+            //         .after("Boss Attack Hitbox Activation")
+            //         .after(start_soul_shift)
+            // )
             .add_system(bam_the_player.label("Bam The Player"))
             // .after("Attack Collision")
             .add_system(damage_hit.label("Damage Hit").after(start_soul_shift).after("Bam The Player"))
@@ -160,21 +166,21 @@ fn invulnerability_timer(
 
 /// Activate when the character is on animation phase Attack,
 /// Deactivate else.
-fn attack_hitbox_activation(
+fn player_attack_hitbox_activation(
     mut commands: Commands,
     
-    character_query: Query<
+    player_query: Query<
         (
             &CharacterState,
             &Children,
             &Name,
         ),
-        (Changed<CharacterState>, Or<(With<Player>, With<Boss>)>),
+        (Changed<CharacterState>, With<Player>),
     >,
     parent_hitbox_position_query: Query<(Entity, &Children), With<AttackSensor>>,
     // attack_hitbox_query: Query<Entity, (With<AttackHitbox>, With<Sensor>)>
 ) {
-    for (character_state, children, _name) in character_query.iter() {
+    for (character_state, children, _name) in player_query.iter() {
         // info!("DEBUG: {} Changed {:?}", name, *character_state);
         for child in children.iter() {
             match parent_hitbox_position_query.get(*child) {
@@ -187,7 +193,7 @@ fn attack_hitbox_activation(
                         // vv-- to just see uncomment the two DEBUG info below --vv
                         if *character_state == CharacterState::Attack
                         || *character_state == CharacterState::SecondAttack
-                        || *character_state == CharacterState::TransitionToCharge
+                        || *character_state == CharacterState::ChargedAttack
                         {
                             // info!("DEBUG: Inserted on {}", _name);
                             commands.entity(*hitbox_child).insert(ActiveEvents::COLLISION_EVENTS);
