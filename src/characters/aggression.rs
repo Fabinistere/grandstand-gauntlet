@@ -47,6 +47,7 @@ pub struct AttackCharge {
 }
 
 pub struct FlipAttackSensor(pub Entity);
+
 /// Contains the damage it deals
 #[derive(Component)]
 pub struct AttackHitbox(pub i32);
