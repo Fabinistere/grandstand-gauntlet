@@ -63,6 +63,10 @@ pub struct CreatePlayerEvent(pub Entity);
 ///     - Soul Shift Event
 pub struct PlayerDeathEvent(pub Entity);
 
+/// # Note
+///
+/// TODO: Make the charge much more valuable than the spamming
+/// ^^^^^---- see characters::aggression::damage_hit Note
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
     buttons: Res<Input<MouseButton>>,
@@ -149,6 +153,7 @@ fn clean_up_dead_bodies(mut commands: Commands, dead_body_query: Query<Entity, A
 /// # Note
 ///
 /// TODO: Movement should be links to the DeltaTime
+/// TODO: Dying while running skip the death animation and the velocity reset
 fn player_movement(
     keyboard_input: Res<Input<KeyCode>>,
     mut player_query: Query<

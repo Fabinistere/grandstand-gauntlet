@@ -41,10 +41,10 @@ fn main() {
                 })
                 .set(ImagePlugin::default_nearest()),
         )
-        .add_plugin(RapierDebugRenderPlugin {
-            mode: DebugRenderMode::all(),
-            ..default()
-        })
+        // .add_plugin(RapierDebugRenderPlugin {
+        //     mode: DebugRenderMode::all(),
+        //     ..default()
+        // })
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(
             TILE_SIZE,
         ))

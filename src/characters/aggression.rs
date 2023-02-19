@@ -304,6 +304,11 @@ fn attack_collision(
 /// Inflicts Damage (contains within the attack hitbox) to the touched entity.
 /// 
 /// Send a ~~Death Event~~ Soul Shift Event if it's too much...
+/// 
+/// # Note
+/// 
+/// TODO: Lower the Invulnerability post hit of the boss
+/// ^^^^^---- Allow Spamming Attack and Slap Return
 fn damage_hit(
     mut damage_hit_event: EventReader<DamageHitEvent>,
     
