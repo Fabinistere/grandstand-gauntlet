@@ -164,6 +164,25 @@ fn invulnerability_timer(
     }
 }
 
+/// Lower the cooldown timer and remove it when it fishied
+fn cooldown_timer(
+    mut commands: Commands,
+    time: Res<Time>,
+    
+    // The Boss has their cooldown in their Attack Range Sensor
+    mut character_on_cooldown: Query<(Entity, &mut AttackCooldown)>,
+) {
+    for (character, mut cooldown) in character_on_cooldown.iter_mut() {
+        cooldown.tick(time.delta());
+
+        if cooldown.just_finished() {
+            commands
+                .entity(character)
+                .remove::<AttackCooldown>();
+        }
+    }
+}
+
 /// Activate when the character is on animation phase Attack,
 /// Deactivate else.
 fn player_attack_hitbox_activation(
@@ -210,24 +229,6 @@ fn player_attack_hitbox_activation(
     }
 }
 
-/// Lower the cooldown timer and remove it when it fishied
-fn cooldown_timer(
-    mut commands: Commands,
-    time: Res<Time>,
-    
-    // The Boss has their cooldown in their Attack Range Sensor
-    mut character_on_cooldown: Query<(Entity, &mut AttackCooldown)>,
-) {
-    for (character, mut cooldown) in character_on_cooldown.iter_mut() {
-        cooldown.tick(time.delta());
-
-        if cooldown.just_finished() {
-            commands
-                .entity(character)
-                .remove::<AttackCooldown>();
-        }
-    }
-}
 
 fn bam_the_player(
     keyboard_input: Res<Input<KeyCode>>,
