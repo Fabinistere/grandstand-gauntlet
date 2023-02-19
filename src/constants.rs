@@ -14,6 +14,7 @@ pub mod character {
     pub mod player {
         pub const BOTTOM_WHIP_POS: (f32, f32, f32) = (10., -5.5, 0.);
         pub const FRONT_WHIP_POS: (f32, f32, f32) = (30., -3., 0.);
+        pub const CHARGED_ATTACK_HOLD: f32 = 0.5;
     }
 }
 

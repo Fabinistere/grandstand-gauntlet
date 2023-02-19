@@ -5,14 +5,14 @@ use crate::{
     camera::camera_follow,
     characters::movement::{MovementBundle, Speed},
     constants::character::{
-        player::{BOTTOM_WHIP_POS, FRONT_WHIP_POS},
+        player::{BOTTOM_WHIP_POS, CHARGED_ATTACK_HOLD, FRONT_WHIP_POS},
         CHAR_POSITION,
     },
     crowd::CrowdMember,
 };
 
 use super::{
-    aggression::{AttackSensor, FlipAttackSensor},
+    aggression::{AttackCharge, AttackSensor, FlipAttackSensor},
     animations::{AnimationIndices, AnimationTimer, CharacterState},
 };
 
@@ -46,13 +46,34 @@ pub struct CreatePlayerEvent(pub Entity);
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
     buttons: Res<Input<MouseButton>>,
-    mut player_query: Query<(Entity, &mut CharacterState), With<Player>>,
+    mut player_query: Query<
+        (
+            Entity,
+            &mut CharacterState,
+            &mut Velocity,
+            &mut AttackCharge,
+        ),
+        With<Player>,
+    >,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Return) || buttons.just_pressed(MouseButton::Left) {
-        // info!("DEBUG: return pressed");
-        // eprintln!("DEBUG: BOM");
-        let (_player, mut state) = player_query.single_mut();
-        *state = CharacterState::Attack;
+    if let Ok((_player, mut state, mut rb_vel, mut attack_charge)) = player_query.get_single_mut() {
+        if keyboard_input.just_pressed(KeyCode::Return) || buttons.just_pressed(MouseButton::Left) {
+            attack_charge.charging = true;
+            attack_charge.timer.reset();
+        } else if keyboard_input.just_released(KeyCode::Return)
+            || buttons.just_released(MouseButton::Left)
+        {
+            // info!("DEBUG: return pressed");
+            // eprintln!("DEBUG: BOM");
+            *state = if attack_charge.timer.finished() {
+                CharacterState::ChargedAttack
+            } else {
+                CharacterState::Attack
+            };
+
+            rb_vel.linvel = Vect::ZERO;
+            attack_charge.timer.reset();
+        }
     }
 }
 
@@ -73,6 +94,15 @@ fn player_movement(
     if let Ok((player, speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
         player_query.get_single_mut()
     {
+        // If player is attacking, don't allow them to move
+        if *player_state == CharacterState::Attack
+            || *player_state == CharacterState::SecondAttack
+            || *player_state == CharacterState::ChargedAttack
+        {
+            rb_vel.linvel = Vect::ZERO;
+            return;
+        }
+
         let left = keyboard_input.pressed(KeyCode::Q)
             || keyboard_input.pressed(KeyCode::Left)
             || keyboard_input.pressed(KeyCode::A);
@@ -147,8 +177,9 @@ fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut co
     for CreatePlayerEvent(entity) in create_player_event.iter() {
         let mut animation_indices = AnimationIndices(HashMap::new());
         animation_indices.insert(CharacterState::Idle, (0, 4));
-        animation_indices.insert(CharacterState::Attack, (19, 26)); // (19, 23)
+        animation_indices.insert(CharacterState::Attack, (19, 21)); // (19, 23)
         animation_indices.insert(CharacterState::SecondAttack, (24, 26)); // (24, 26)
+        animation_indices.insert(CharacterState::ChargedAttack, (19, 26)); // (24, 26)
         animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
         animation_indices.insert(CharacterState::Charge, (15, 18));
         animation_indices.insert(CharacterState::Run, (5, 12));
@@ -173,6 +204,11 @@ fn create_player(mut create_player_event: EventReader<CreatePlayerEvent>, mut co
                         linvel: Vect::ZERO,
                         angvel: 0.,
                     },
+                },
+                // -- Attack --
+                AttackCharge {
+                    charging: false,
+                    timer: Timer::from_seconds(CHARGED_ATTACK_HOLD, TimerMode::Once),
                 },
             ))
             .with_children(|parent| {

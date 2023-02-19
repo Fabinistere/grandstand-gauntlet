@@ -10,6 +10,7 @@ impl Plugin for AggressionPlugin {
         app 
             .add_event::<FlipAttackSensor>()
             .add_system(flip_attack_sensor)
+            .add_system(charged_attack)
             ;
     }
 }
@@ -17,8 +18,22 @@ impl Plugin for AggressionPlugin {
 #[derive(Component)]
 pub struct AttackSensor;
 
+#[derive(Component, Debug)]
+pub struct AttackCharge {
+    pub charging: bool,
+    pub timer: Timer,
+}
+
 /// DOC
 pub struct FlipAttackSensor(pub Entity);
+
+fn charged_attack(time: Res<Time>, mut query: Query<&mut AttackCharge>) {
+    for mut attack_charge in query.iter_mut() {
+        if attack_charge.charging {
+            attack_charge.timer.tick(time.delta());
+        }
+    }
+}
 
 fn flip_attack_sensor(
     mut flip_direction_event: EventReader<FlipAttackSensor>,

@@ -32,6 +32,7 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     window: WindowDescriptor {
+                        fit_canvas_to_parent: true,
                         title: "Grandstand Gauntlet".to_string(),
                         ..default()
                     },

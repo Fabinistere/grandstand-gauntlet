@@ -8,6 +8,7 @@ pub enum CharacterState {
     Idle,
     Attack,
     SecondAttack,
+    ChargedAttack,
     TransitionToCharge,
     Charge,
     Run,
@@ -46,6 +47,7 @@ pub fn animate_character(
             if *character_state == CharacterState::Run
                 || *character_state == CharacterState::Attack
                 || *character_state == CharacterState::SecondAttack
+                || *character_state == CharacterState::ChargedAttack
                 || *character_state == CharacterState::TransitionToCharge
             {
                 // Idle when stop running/attacking
