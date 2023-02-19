@@ -176,15 +176,15 @@ pub fn boss_attack_hitbox_activation(
                             smash_hitbox_query.get(*hitbox_child),
                             fallen_angel_hitbox_query.get(*hitbox_child),
                         ) {
-                            (Ok(Smash), Err(_)) => {
+                            (Ok(smash), Err(_)) => {
                                 if *character_state == CharacterState::Attack {
                                     // info!("DEBUG: Smash Active Inserted on {}", _name);
                                     commands
-                                        .entity(Smash)
+                                        .entity(smash)
                                         .insert(ActiveEvents::COLLISION_EVENTS);
                                 } else {
                                     // info!("DEBUG: Smash Active Removed on {}", _name);
-                                    commands.entity(Smash).remove::<ActiveEvents>();
+                                    commands.entity(smash).remove::<ActiveEvents>();
                                 }
                             }
                             (Err(_), Ok(fallen_angel)) => {
