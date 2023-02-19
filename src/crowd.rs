@@ -1,9 +1,6 @@
 use crate::{
     characters::animations::{AnimationIndices, AnimationTimer, CharacterState},
-    constants::{
-        character::CROWD_CHARACTER_Z,
-        crowd::{CROWD_SIZE, CROWD_SPAN},
-    },
+    constants::crowd::{CROWD_SIZE, CROWD_SPAN, CROWD_Y, CROWD_Z},
 };
 use bevy::{ecs::schedule::ShouldRun, prelude::*, utils::HashMap};
 use rand::Rng;
@@ -114,8 +111,8 @@ fn generate_crowd(
                         sprite: texture_atlas_sprite,
                         transform: Transform::from_translation(Vec3::new(
                             current_crowd_member_x + rand.gen_range(-10.0..=10.0),
-                            -55.0,
-                            CROWD_CHARACTER_Z,
+                            CROWD_Y,
+                            CROWD_Z,
                         )),
                         ..default()
                     },
