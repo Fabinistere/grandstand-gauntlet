@@ -1,4 +1,4 @@
-mod aggression;
+pub mod aggression;
 pub mod animations;
 pub mod movement;
 pub mod npcs;
