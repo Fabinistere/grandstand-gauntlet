@@ -40,10 +40,12 @@ pub struct SoulShiftEvent(pub Entity);
 fn suicide_to_soul_shift(
     keyboard_input: Res<Input<KeyCode>>,
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
-    player_query: Query<Entity, (With<Player>, Without<DeadBody>)>,
+    mut player_query: Query<(Entity, &mut Hp), (With<Player>, Without<DeadBody>)>,
 ) {
     if keyboard_input.just_pressed(KeyCode::E) {
-        if let Ok(player) = player_query.get_single() {
+        if let Ok((player, mut hp)) = player_query.get_single_mut() {
+            // So long
+            hp.current = 0;
             soul_shift_event.send(SoulShiftEvent(player));
         }
     }
