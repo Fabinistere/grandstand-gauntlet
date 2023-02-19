@@ -233,11 +233,13 @@ fn bam_the_player(
     if keyboard_input.just_pressed(KeyCode::Space) {
         if let Ok(player) = player_query.get_single() {
             info!("Bam dans ta gueule !");
-            let attack_hitbox = boss_attack_hitbox.single();
-            damage_hit_event.send(DamageHitEvent {
-                attack_hitbox,
-                target: player
-            });
+            for attack_hitbox in boss_attack_hitbox.iter() {
+                damage_hit_event.send(DamageHitEvent {
+                    attack_hitbox,
+                    target: player
+                });
+                break;
+            }
         }
     }
 }
