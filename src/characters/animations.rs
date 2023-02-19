@@ -1,9 +1,12 @@
 use bevy::{prelude::*, utils::HashMap};
+use bevy_inspector_egui::Inspectable;
 
-use super::{aggression::DeadBody, npcs::boss::Boss, player::Player};
-use crate::crowd::CrowdMember;
+use crate::{
+    characters::{aggression::DeadBody, npcs::boss::Boss, player::Player},
+    crowd::CrowdMember,
+};
 
-#[derive(Default, Debug, Clone, Component, Eq, Hash, PartialEq)]
+#[derive(Default, Debug, Clone, Component, Eq, Hash, Inspectable, PartialEq)]
 pub enum CharacterState {
     #[default]
     Idle,
@@ -54,12 +57,14 @@ pub fn animate_character(
                 || *character_state == CharacterState::Attack
                 || *character_state == CharacterState::SecondAttack
                 || *character_state == CharacterState::ChargedAttack
-                || *character_state == CharacterState::TransitionToCharge
                 || *character_state == CharacterState::Hit
             {
                 // TODO: longer animation of "getting hit"
                 // Idle when stop running/attacking/getting hit
                 next_phase = Some(CharacterState::Idle);
+            } else if *character_state == CharacterState::TransitionToCharge {
+                // Charging
+                next_phase = Some(CharacterState::Charge);
             } else if *character_state == CharacterState::Dead {
                 // CharacterState::PermaDeath (last frame to last frame)
                 next_phase = Some(CharacterState::Dead);

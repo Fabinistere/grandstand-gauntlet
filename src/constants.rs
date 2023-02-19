@@ -43,8 +43,13 @@ pub mod character {
 
         pub const BOSS_SMASH_COOLDOWN: f32 = 5.;
 
-        pub const FRONT_SMASH_POS: (f32, f32, f32) = (10., -5.5, 0.);
-        pub const BOSS_ATTACK_HITBOX_FRONT: (f32, f32) = (20., 7.);
+        pub const FRONT_SMASH_POS_TOP: (f32, f32, f32) = (42., 11., 0.);
+        pub const BOSS_ATTACK_HITBOX_SMASH_TOP: (f32, f32) = (10., 5.);
+        pub const FRONT_SMASH_POS_BOTTOM: (f32, f32, f32) = (20., -4., 0.);
+        pub const BOSS_ATTACK_HITBOX_SMASH_BOTTOM: (f32, f32) = (40., 10.);
+
+        pub const FALLEN_ANGEL_POS: (f32, f32, f32) = (0., -5.5, 0.);
+        pub const BOSS_ATTACK_HITBOX_FALLEN_ANGEL: (f32, f32) = (45., 7.);
 
         pub const BOSS_HITBOX_SIZE: f32 = 12.;
         pub const BOSS_RANGE_HITBOX_SIZE: f32 = 40.;
@@ -53,11 +58,11 @@ pub mod character {
         // -- Animation --
         pub const BOSS_IDLE_FRAMES: (usize, usize) = (0, 4);
         pub const BOSS_RUN_FRAMES: (usize, usize) = (5, 10);
-        pub const BOSS_TRANSITION_TO_CHARGE_FRAMES: (usize, usize) = (11, 18);
-        pub const BOSS_CHARGE_FRAMES: (usize, usize) = (15, 18);
-        // First Swing: (19, 23)
-        pub const BOSS_FULL_ATTACK_FRAMES: (usize, usize) = (19, 26);
-        pub const BOSS_SECOND_ATTACK_FRAMES: (usize, usize) = (24, 26);
+        // pub const BOSS_TRANSITION_TO_CHARGE_FRAMES: (usize, usize) = (11, 18);
+        pub const BOSS_CHARGE_FRAMES: (usize, usize) = (11, 14);
+        pub const BOSS_SMASH_FRAMES: (usize, usize) = (15, 18);
+        // TODO: Fix last frame FX -----vvv
+        pub const BOSS_FALLEN_ANGEL_FRAMES: (usize, usize) = (19, 26);
         pub const BOSS_HIT_FRAMES: (usize, usize) = (27, 28);
         pub const BOSS_DEAD_FRAMES: (usize, usize) = (29, 34);
     }

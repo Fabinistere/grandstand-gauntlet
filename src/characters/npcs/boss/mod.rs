@@ -14,7 +14,7 @@ use crate::{
 };
 
 use self::{
-    aggression::{BossSensor, BossAttackEvent, boss_close_detection, boss_attack_event_handler, display_boss_hp},
+    aggression::{BossSensor, BossAttackEvent, boss_attack_hitbox_activation, boss_close_detection, boss_attack_event_handler, display_boss_hp},
     movement::stare_player,
 };
 
@@ -26,11 +26,12 @@ impl Plugin for BossPlugin {
         app 
             .add_startup_system(setup_boss)
             .add_system(stare_player)
+            .add_system(display_boss_hp)
             // -- Aggression --
             .add_event::<BossAttackEvent>()
             .add_system(boss_close_detection)
             .add_system(boss_attack_event_handler)
-            .add_system(display_boss_hp)
+            .add_system(boss_attack_hitbox_activation.label("Boss Attack Hitbox Activation"))
             // .add_plugin(AggressionBossPlugin) 
             ;
     }
@@ -42,6 +43,12 @@ pub struct Boss;
 #[derive(Component)]
 pub struct BossAttack;
 
+#[derive(Component)]
+pub struct BossAttackSmash;
+
+#[derive(Component)]
+pub struct BossAttackFalleAngel;
+
 fn setup_boss(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -50,13 +57,13 @@ fn setup_boss(
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, BOSS_IDLE_FRAMES);
     animation_indices.insert(CharacterState::Run, BOSS_RUN_FRAMES);
+    // animation_indices.insert(CharacterState::TransitionToCharge, BOSS_TRANSITION_TO_CHARGE_FRAMES); //(11, 14)
     // Charge to Backhand
-    animation_indices.insert(CharacterState::TransitionToCharge, BOSS_TRANSITION_TO_CHARGE_FRAMES); //(11, 14)
-    // Backhand
     animation_indices.insert(CharacterState::Charge, BOSS_CHARGE_FRAMES);
+    // Backhand
+    animation_indices.insert(CharacterState::Attack, BOSS_SMASH_FRAMES);
     // Powerfull Attack: Fallen angel
-    animation_indices.insert(CharacterState::Attack, BOSS_FULL_ATTACK_FRAMES);
-    // animation_indices.insert(CharacterState::SecondAttack, BOSS_SECOND_ATTACK_FRAMES);
+    animation_indices.insert(CharacterState::SecondAttack, BOSS_FALLEN_ANGEL_FRAMES);
     animation_indices.insert(CharacterState::Hit, BOSS_HIT_FRAMES);
     animation_indices.insert(CharacterState::Dead, BOSS_DEAD_FRAMES);
 
@@ -80,7 +87,7 @@ fn setup_boss(
             // -- Animation --
             AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Repeating)),
             animation_indices,
-            CharacterState::Idle,
+            CharacterState::default(),
             // -- Combat --
             Hp::new(BOSS_HP),
             AttackCooldown(Timer::from_seconds(
@@ -120,31 +127,86 @@ fn setup_boss(
             ));
 
             // -- Attack Hitbox --
-            // TODO: Active the sensor only for certain frame
+            // Smash
             parent
                 .spawn((
                     SpatialBundle {
-                        transform: Transform::from_translation(FRONT_SMASH_POS.into()),
+                        transform: Transform::from_translation(FRONT_SMASH_POS_TOP.into()),
                         ..default()
                     },
                     AttackSensor,
                     RigidBody::Dynamic,
-                    Name::new("Parent Front"),
+                    Name::new("Parent - Smash Top"),
                 ))
                 .with_children(|parent| {
                     // Front
                     parent.spawn((
                         // REFACTOR: Find a way to .into() a (f32, f32) tuple into a 2arguments function
                         Collider::cuboid(
-                            BOSS_ATTACK_HITBOX_FRONT.0,
-                            BOSS_ATTACK_HITBOX_FRONT.1,
+                            BOSS_ATTACK_HITBOX_SMASH_TOP.0,
+                            BOSS_ATTACK_HITBOX_SMASH_TOP.1,
                         ),
                         Transform::default(),
                         AttackHitbox(10),
                         BossAttack,
+                        BossAttackSmash,
+                        Sensor,
+                        Name::new("Attack Hitbox: Sensor - Smash Top"),
+                    ));
+                });
+            parent
+                .spawn((
+                    SpatialBundle {
+                        transform: Transform::from_translation(FRONT_SMASH_POS_BOTTOM.into()),
+                        ..default()
+                    },
+                    AttackSensor,
+                    RigidBody::Dynamic,
+                    Name::new("Parent - Smash Bot"),
+                ))
+                .with_children(|parent| {
+                    // Front
+                    parent.spawn((
+                        // REFACTOR: Find a way to .into() a (f32, f32) tuple into a 2arguments function
+                        Collider::cuboid(
+                            BOSS_ATTACK_HITBOX_SMASH_BOTTOM.0,
+                            BOSS_ATTACK_HITBOX_SMASH_BOTTOM.1,
+                        ),
+                        Transform::default(),
+                        AttackHitbox(10),
+                        BossAttack,
+                        BossAttackSmash,
+                        Sensor,
+                        Name::new("Attack Hitbox: Sensor - Smash Bot"),
+                    ));
+                });
+
+            // Fallen Angel
+            parent
+                .spawn((
+                    SpatialBundle {
+                        transform: Transform::from_translation(FALLEN_ANGEL_POS.into()),
+                        ..default()
+                    },
+                    AttackSensor,
+                    RigidBody::Dynamic,
+                    Name::new("Parent - FallenAngel"),
+                ))
+                .with_children(|parent| {
+                    // Front
+                    parent.spawn((
+                        // REFACTOR: Find a way to .into() a (f32, f32) tuple into a 2arguments function
+                        Collider::cuboid(
+                            BOSS_ATTACK_HITBOX_FALLEN_ANGEL.0,
+                            BOSS_ATTACK_HITBOX_FALLEN_ANGEL.1,
+                        ),
+                        Transform::default(),
+                        AttackHitbox(10),
+                        BossAttack,
+                        BossAttackFalleAngel,
                         // CollisionGroups::new(0b0100.into(), 0b0010.into()),
                         Sensor,
-                        Name::new("Attack Hitbox: Sensor Front"),
+                        Name::new("Attack Hitbox: Sensor - FallenAnegel"),
                     ));
                 });
         });

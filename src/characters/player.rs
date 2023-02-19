@@ -80,11 +80,10 @@ fn player_attack(
         if keyboard_input.just_pressed(KeyCode::Return) || buttons.just_pressed(MouseButton::Left) {
             attack_charge.charging = true;
             attack_charge.timer.reset();
+            *state = CharacterState::TransitionToCharge;
         } else if keyboard_input.just_released(KeyCode::Return)
             || buttons.just_released(MouseButton::Left)
         {
-            // info!("DEBUG: return pressed");
-            // eprintln!("DEBUG: BOM");
             *state = if attack_charge.timer.finished() {
                 CharacterState::ChargedAttack
             } else {
@@ -277,8 +276,8 @@ fn create_player(
                 Name::new("Player"),
                 // -- Animation --
                 AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Repeating)),
-                CharacterState::Idle,
                 animation_indices,
+                CharacterState::default(),
                 // -- Combat --
                 // Hp::default(),
                 Hp::new(20),
