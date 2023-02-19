@@ -7,7 +7,7 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     characters::{
         animations::{AnimationIndices, AnimationTimer, CharacterState},
-        aggression::{Hp, AttackSensor, AttackHitbox},
+        aggression::{Hp, AttackSensor, AttackHitbox, AttackCooldown},
         movement::{MovementBundle, Speed, CharacterHitbox},
     },
     constants::character::{CHAR_POSITION, boss::*, FRAME_TIME},
@@ -38,6 +38,9 @@ impl Plugin for BossPlugin {
 
 #[derive(Component)]
 pub struct Boss;
+
+#[derive(Component)]
+pub struct BossAttack;
 
 fn setup_boss(
     mut commands: Commands,
@@ -80,6 +83,10 @@ fn setup_boss(
             CharacterState::Idle,
             // -- Combat --
             Hp::new(BOSS_HP),
+            AttackCooldown(Timer::from_seconds(
+                BOSS_SMASH_COOLDOWN,
+                TimerMode::Once,
+            )),
             // -- Hitbox --
             RigidBody::Dynamic,
             LockedAxes::ROTATION_LOCKED,
@@ -134,6 +141,7 @@ fn setup_boss(
                         ),
                         Transform::default(),
                         AttackHitbox(10),
+                        BossAttack,
                         // CollisionGroups::new(0b0100.into(), 0b0010.into()),
                         Sensor,
                         Name::new("Attack Hitbox: Sensor Front"),

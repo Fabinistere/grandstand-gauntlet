@@ -34,7 +34,7 @@ pub mod character {
         pub const PLAYER_FULL_ATTACK_FRAMES: (usize, usize) = (19, 26);
         pub const PLAYER_SECOND_ATTACK_FRAMES: (usize, usize) = (24, 26);
         pub const PLAYER_HIT_FRAMES: (usize, usize) = (27, 28);
-        pub const PLAYER_DEAD_FRAMES: (usize, usize) = (29, 33);
+        pub const PLAYER_DEAD_FRAMES: (usize, usize) = (29, 34);
     }
 
     pub mod boss {

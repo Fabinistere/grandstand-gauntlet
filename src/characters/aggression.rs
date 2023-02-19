@@ -8,10 +8,10 @@ use crate::{
         movement::CharacterHitbox,
         npcs::boss::Boss,
         player::Player,
-    }
+    }, soul_shift::{SoulShiftEvent, SoulShifting, start_soul_shift}, crowd::CrowdMember
 };
 
-use super::player::PlayerHitbox;
+use super::npcs::boss::BossAttack;
 
 pub struct AggressionPlugin;
 
@@ -23,11 +23,16 @@ impl Plugin for AggressionPlugin {
             .add_event::<FlipAttackSensorEvent>()
             .add_system(flip_attack_sensor)
             .add_system(charged_attack)
-            .add_system(damage_animation)
+            .add_system(damage_animation.label("Damage Animation").after("Damage Hit"))
             // -- ? --
-            .add_system(damage_hit)
-            .add_system(attack_hitbox_activation)
-            .add_system(cooldown_timer)
+            .add_event::<DamageHitEvent>()
+            .add_system(invulnerability_timer.label("Invulnerability Timer"))
+            .add_system(cooldown_timer.label("Cooldown Timer"))
+            .add_system(attack_hitbox_activation.label("Attack Hitbox Activation"))
+            // .add_system(attack_collision.label("Attack Collision").after("Attack Hitbox Activation").after(start_soul_shift))
+            .add_system(bam_the_player.label("Bam The Player"))
+            // .after("Attack Collision")
+            .add_system(damage_hit.label("Damage Hit").after(start_soul_shift).after("Bam The Player"))
             ;
     }
 }
@@ -46,11 +51,14 @@ pub struct FlipAttackSensor(pub Entity);
 #[derive(Component)]
 pub struct AttackHitbox(pub i32);
 
-#[derive(Component)]
-pub struct Invulnerable;
+#[derive(Component, Deref, DerefMut)]
+pub struct Invulnerable(pub Timer);
 
 #[derive(Component, Deref, DerefMut)]
 pub struct AttackCooldown(pub Timer);
+
+#[derive(Component)]
+pub struct DeadBody;
 
 #[derive(Component)]
 pub struct Hp {
@@ -69,9 +77,26 @@ impl Hp {
 }
 
 /// Happens when
+///   - characters::aggression::attack_collision
+///     - The target got hit by a attack hitbox
+///     which is not their attack (no self-harm)
+/// 
+/// Read in
+///   - characters::aggression::damage_hit
+///     - Target gets reckted (lower hp).
+///     Death if it was too much
+pub struct DamageHitEvent {
+    /// Where the damage is stored
+    pub attack_hitbox: Entity,
+    /// Entity getting hit
+    pub target: Entity,
+}
+
+/// Happens when
 ///   - characters::player::player_movement
 ///     - The player turns into opposite direction
 ///     So do their hitbox.
+/// 
 /// Read in
 ///   - characters::aggression::flip_attack_sensor
 ///     - Flip their attack sensor vertically
@@ -113,106 +138,30 @@ fn flip_attack_sensor(
     }
 }
 
-/// Change the Animation to Hit when being hurted.
-/// TODO: Prevent hit anim while healing
-/// Carefull: Even if the Hp is rising this animation will trigger
-fn damage_animation(
-    mut bleeding_character_query: Query<(Entity, &mut CharacterState), Changed<Hp>>,
-) {
-    for (_hurted_character, mut character_state) in bleeding_character_query.iter_mut() {
-        *character_state = CharacterState::Hit;
-    }
-}
-
 /// Lower the cooldown timer and remove it when it fishied
-fn cooldown_timer(
+fn invulnerability_timer(
     mut commands: Commands,
     time: Res<Time>,
-
+    
     // The Boss has their cooldown in their Attack Range Sensor
-    mut character_on_cooldown: Query<(Entity, &mut AttackCooldown)>,
+    mut invulnerable_character: Query<(Entity, &mut Invulnerable)>,
 ) {
-    for (character, mut cooldown) in character_on_cooldown.iter_mut() {
-        cooldown.tick(time.delta());
+    for (character, mut invulnerability) in invulnerable_character.iter_mut() {
+        invulnerability.tick(time.delta());
 
-        if cooldown.just_finished() {
+        if invulnerability.just_finished() {
             commands
                 .entity(character)
-                .remove::<AttackCooldown>();
+                .remove::<Invulnerable>();
         }
     }
-}
-
-/// Inflicts Damage (contains within the attack hitbox) to the touched entity.
-/// 
-/// Send a Death Event if it's too much...
-fn damage_hit(
-    // mut collision_events: EventReader<CollisionEvent>,
-    rapier_context: Res<RapierContext>,
-    
-    attack_hitbox_query: Query<(Entity, &AttackHitbox, &Parent), (With<Sensor>, With<ActiveEvents>)>,
-    character_hitbox_query: Query<(Entity, &Parent), (With<PlayerHitbox>, With<CharacterHitbox>)>,
-
-    mut target_query: Query<&mut Hp, Without<Invulnerable>>,
-) {
-    // REFACTOR: IF THE PLAYER attack in the same moment this if will be false (multiple entities)
-    // and doen't work for the player attack
-    if let Ok((attack_hitbox_entity, attack_hitbox, _attacker)) = attack_hitbox_query.get_single() {
-        // TODO: Getting hit makes you invulnerable
-        // ATM you're getting OS
-        if let Ok((character_hitbox, target)) = character_hitbox_query.get_single() {
-            if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
-                match target_query.get_mut(**target) {
-                    Err(e) => warn!("No HP Component in the targeted entity: {:?}", e),
-                    Ok(mut hp) => {
-                        if hp.current <= attack_hitbox.0 {
-                            hp.current = 0;
-                            // TODO: send Death Event
-                        } else {
-                            hp.current -= attack_hitbox.0;
-                        }
-                    }
-                }
-            }
-        } else { info!("No PlayerHitbox") }
-    }
-    // for collision_event in collision_events.iter() {
-    //     let entity_1 = collision_event.entities().0;
-    //     let entity_2 = collision_event.entities().1;
-
-    //     // REFACTOR: This intersection_pair doesn't care about ActiveEvent
-    //     // ^^^^^^^^^-------------- We need to query the attack_hitbox with ActiveEvent
-    //     // BUG: This method only allow dmg when enter the hitbox while it's attacking
-    //     if rapier_context.intersection_pair(entity_1, entity_2) == Some(true) {
-    //         match (attack_hitbox_query.get(entity_1), attack_hitbox_query.get(entity_2), character_hitbox_query.get(entity_1), character_hitbox_query.get(entity_2)) {
-    //             // A AtatckHitbox and a CharacterHitbox is involved
-    //             (Ok((attack_hitbox, _attacker)), Err(_), Err(_), Ok((_character_hitbox, target)))
-    //             | (Err(_), Ok((attack_hitbox, _attacker)), Ok((_character_hitbox, target)), Err(_)) => {
-    //                 match target_query.get_mut(**target) {
-    //                     Err(e) => warn!("No HP Component in the targeted entity: {:?}", e),
-    //                     Ok(mut hp) => {
-    //                         if hp.current <= attack_hitbox.0 {
-    //                             hp.current = 0;
-    //                             // TODO: send Death Event
-    //                         } else {
-    //                             hp.current -= attack_hitbox.0;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //             // There is no attack_hitbox/character_hitbox involved
-    //             _ => continue,
-
-    //         }
-    //     }
-    // }
 }
 
 /// Activate when the character is on animation phase Attack,
 /// Deactivate else.
 fn attack_hitbox_activation(
     mut commands: Commands,
-
+    
     character_query: Query<
         (
             &CharacterState,
@@ -233,7 +182,7 @@ fn attack_hitbox_activation(
                 // for all their hitbox children
                 Ok((_parent_hitbox, hitbox_children)) => {
                     for hitbox_child in hitbox_children.iter() {
-                        // OPTIMIZE: Hitbox Activation - This statement wil be called a bit too much
+                        // OPTIMIZE: Hitbox Activation - This statement will be called a bit too much
                         // vv-- to just see uncomment the two DEBUG info below --vv
                         if *character_state == CharacterState::Attack
                         || *character_state == CharacterState::SecondAttack
@@ -245,25 +194,157 @@ fn attack_hitbox_activation(
                             // info!("DEBUG: Removed on {}", _name);
                             commands.entity(*hitbox_child).remove::<ActiveEvents>();
                         }
-                        // match attack_hitbox_query.get(*child) {
-                        //     Err(_) => continue,
-                        //     Ok(attack_hitbox) => {
-                        //         if *character_state == CharacterState::Attack
-                        //         || *character_state == CharacterState::SecondAttack
-                        //         || *character_state == CharacterState::TransitionToCharge
-                        //         {
-                        //             // info!("DEBUG: Inserted on {}", _name);
-                        //             commands.entity(attack_hitbox).insert(ActiveEvents::COLLISION_EVENTS);
-                        //         } else {
-                        //             // info!("DEBUG: Removed on {}", _name);
-                        //             commands.entity(attack_hitbox).remove::<ActiveEvents>();
-                        //         }
-                        //     }
-                        // }
+                        // match attack_hitbox_query.get(*child)
                     }
                 }
             }
             
         }
+    }
+}
+
+/// Lower the cooldown timer and remove it when it fishied
+fn cooldown_timer(
+    mut commands: Commands,
+    time: Res<Time>,
+    
+    // The Boss has their cooldown in their Attack Range Sensor
+    mut character_on_cooldown: Query<(Entity, &mut AttackCooldown)>,
+) {
+    for (character, mut cooldown) in character_on_cooldown.iter_mut() {
+        cooldown.tick(time.delta());
+
+        if cooldown.just_finished() {
+            commands
+                .entity(character)
+                .remove::<AttackCooldown>();
+        }
+    }
+}
+
+fn bam_the_player(
+    keyboard_input: Res<Input<KeyCode>>,
+    player_query: Query<Entity, (With<Player>, Without<Invulnerable>)>,
+    boss_attack_hitbox: Query<Entity, (With<BossAttack>, With<AttackHitbox>)>,
+
+    mut damage_hit_event: EventWriter<DamageHitEvent>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        if let Ok(player) = player_query.get_single() {
+            info!("Bam dans ta gueule !");
+            let attack_hitbox = boss_attack_hitbox.single();
+            damage_hit_event.send(DamageHitEvent {
+                attack_hitbox,
+                target: player
+            });
+        }
+    }
+}
+
+// REFACTOR: ALL AGGRESSION COLLISION
+
+/// Inflicts Damage (contains within the attack hitbox) to the touched entity.
+fn _attack_collision(
+    // mut collision_events: EventReader<CollisionEvent>,
+    rapier_context: Res<RapierContext>,
+    
+    soul_shifter_query: Query<Entity, With<SoulShifting>>,
+    attack_hitbox_query: Query<(Entity, &Parent), (With<Sensor>, With<AttackHitbox>, With<ActiveEvents>)>,
+    character_hitbox_query: Query<(Entity, &Parent), With<CharacterHitbox>>,
+
+    target_query: Query<Entity, (Without<Invulnerable>, Without<SoulShifting>)>,
+    
+    // vv-- They has as child a attackHitbox which inherit their transform
+    attack_sensor_query: Query<(Entity, &Parent), With<AttackSensor>>,
+
+    mut damage_hit_event: EventWriter<DamageHitEvent>,
+) {
+    // OPTIMIZE: Querying all attack hitbox then all character hitbox is not very efficient
+    // REFACTOR: Don't Execute if there is a SoulShifter left
+    if soul_shifter_query.is_empty() {
+        for (attack_hitbox_entity, parent_hitbox) in attack_hitbox_query.iter() {
+            for (character_hitbox, target) in character_hitbox_query.iter() {
+
+                match target_query.get(**target) {
+                    // The target is invulnerable
+                    Err(_) => continue,
+                    Ok(_) => {
+                        if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
+                            match attack_sensor_query.get(**parent_hitbox) {
+                                Err(e) => warn!("The attackHitbox's hierarchy is invalid: {:?}", e),
+                                Ok((_, attacker)) => {
+                                    if **attacker != **target {
+                                        damage_hit_event.send(DamageHitEvent {
+                                            attack_hitbox: attack_hitbox_entity,
+                                            target: **target
+                                        });
+                                        info!("Damage Hit Event !");
+                                    }
+                                }
+                            }
+                        }
+        
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// DOC
+/// 
+/// Send a Death Event if it's too much...
+fn damage_hit(
+    mut damage_hit_event: EventReader<DamageHitEvent>,
+    
+    mut commands: Commands,
+    
+    // With<ActiveEvents>
+    attack_hitbox_query: Query<&AttackHitbox, With<Sensor>>,
+    mut target_query: Query<&mut Hp, (Without<Invulnerable>, Without<SoulShifting>, Without<CrowdMember>)>,
+    
+    mut soul_shift_event: EventWriter<SoulShiftEvent>,
+) {
+    for DamageHitEvent {attack_hitbox, target} in damage_hit_event.iter() {
+        // There is much of it ----vvvv
+        // info!("Damage Hit Event !");
+        match (attack_hitbox_query.get(*attack_hitbox), target_query.get_mut(*target)) {
+            // Invulnerable or SoulShifting target
+            (Ok(_),Err(_)) => continue,
+            // Invalid Attacker
+            (Err(e),_) => warn!("Problem {:?}", e),
+            (Ok(attack_damage), Ok(mut hp)) => {
+
+                // info!("Damage Hit Event To a Vulnerable target!");
+                if hp.current <= attack_damage.0 {
+                    hp.current = 0;
+                    info!("Lethal Damage!");
+                    // TODO: send Player Death Event when the player die
+                    // atm all dying entity will trigger the soul shift/kill the player
+                    // commands.entity(*target).insert(SoulShifting);
+                    soul_shift_event.send(SoulShiftEvent);
+                    // TODO: Boss Death Event
+                } else {
+                    hp.current -= attack_damage.0;
+                    // TODO: Seperate player and boss gestion of getting hit
+                    // TODO: Invulnerable Hint
+                    commands
+                        .entity(*target)
+                        .insert(Invulnerable(Timer::from_seconds(2., TimerMode::Once)));
+                }
+            }
+        }   
+    }
+}
+
+/// Change the Animation to Hit when being hurted.
+/// TODO: Prevent hit anim while healing
+/// Carefull: Even if the Hp is rising this animation will trigger
+fn damage_animation(
+    // DEBUG: Crowd getting hit (maybe the prb is here)
+    mut bleeding_character_query: Query<(Entity, &mut CharacterState), Changed<Hp>>,
+) {
+    for (_hurted_character, mut character_state) in bleeding_character_query.iter_mut() {
+        *character_state = CharacterState::Hit;
     }
 }
