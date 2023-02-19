@@ -8,6 +8,7 @@ mod crowd;
 mod debug;
 mod locations;
 mod soul_shift;
+mod ui;
 
 use bevy::prelude::*;
 use bevy_parallax::{ParallaxCameraComponent, ParallaxPlugin};
@@ -53,6 +54,7 @@ fn main() {
         .add_plugin(DebugPlugin)
         .add_plugin(crowd::CrowdPlugin)
         .add_plugin(soul_shift::SoulShiftPlugin)
+        .add_plugin(ui::UiPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
