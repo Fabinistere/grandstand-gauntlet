@@ -5,12 +5,17 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        animations::CharacterState,
-        player::PlayerHitbox,
+        aggression::{AttackCooldown, Hp},
         // Invulnerable,
+        animations::CharacterState,
+        movement::CharacterHitbox,
+        player::PlayerHitbox,
     },
-    collisions::CollisionEventExt,
+    // collisions::CollisionEventExt,
+    constants::character::boss::BOSS_SMASH_COOLDOWN,
 };
+
+use super::Boss;
 
 // pub struct AggressionBossPlugin;
 
@@ -24,14 +29,13 @@ use crate::{
 //     }
 // }
 
-/// DOC
-///
 /// Happens when:
 ///   - character::npcs::boss::boss_close_detection
 ///     - The player hitbox/Sensor enters the BossSensor
 ///   - character::npcs::boss::???
 ///     - The player hitbox/Sensor is still in the BossSensor
 ///     They must be punished by sanding their bones.
+///
 /// Read in
 ///   - character::npcs::boss::aggression::boss_attack_event_handler
 ///     - Launch an attack to the current facing direction
@@ -46,6 +50,18 @@ pub struct BossAttackEvent {
 
 #[derive(Component)]
 pub struct BossSensor;
+
+/// DEBUG: TEMPORARY
+///
+/// The Boss' hp won't be displayed.
+/// The current phase will indicate, as well as the clouds ?
+pub fn display_boss_hp(
+    bleeding_boss_query: Query<&Hp, (With<Boss>, Or<(Added<Hp>, Changed<Hp>)>)>,
+) {
+    if let Ok(boss_hp) = bleeding_boss_query.get_single() {
+        println!("boss's hp: {}/{}", boss_hp.current, boss_hp.max);
+    }
+}
 
 /// When the player enters the sensor
 /// The boss start to attack them
@@ -70,58 +86,48 @@ pub struct BossSensor;
 ///
 /// ^^^----- I don't know if that could just work: (if not) for more depts: [Collision groups and solver groups](https://rapier.rs/docs/user_guides/bevy_plugin/colliders/#collision-groups-and-solver-groups)
 pub fn boss_close_detection(
-    mut collision_events: EventReader<CollisionEvent>,
+    mut commands: Commands,
+
+    // mut collision_events: EventReader<CollisionEvent>,
     rapier_context: Res<RapierContext>,
 
-    boss_attack_sensor_query: Query<(Entity, &Parent), (With<Sensor>, With<BossSensor>)>,
-    player_sensor_query: Query<(Entity, &Parent), With<PlayerHitbox>>,
+    boss_attack_sensor_query: Query<
+        (Entity, &Parent),
+        (With<Sensor>, With<BossSensor>, Without<AttackCooldown>),
+    >,
+    player_sensor_query: Query<(Entity, &Parent), (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
     mut boss_attack_event: EventWriter<BossAttackEvent>,
 ) {
-    // TODO: Phase 1 - Sensor
-    for collision_event in collision_events.iter() {
-        let entity_1 = collision_event.entities().0;
-        let entity_2 = collision_event.entities().1;
+    // Phase 1 - Sensor
+    if let Ok((attack_sensor, boss)) = boss_attack_sensor_query.get_single() {
+        if let Ok((player_sensor, _player)) = player_sensor_query.get_single() {
+            // Phase 3 - Player TP proof
+            if rapier_context.intersection_pair(attack_sensor, player_sensor) == Some(true) {
+                // IDEA: MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
+                // ^^^^^------ With Dash/Death TP for example
 
-        // info!("DEBUG: {:?} x {:?}", entity_1, entity_2);
+                boss_attack_event.send(BossAttackEvent {
+                    attacker_entity: **boss,
+                });
 
-        if rapier_context.intersection_pair(entity_1, entity_2) == Some(true) {
-            match (
-                boss_attack_sensor_query.get(entity_1),
-                boss_attack_sensor_query.get(entity_2),
-                player_sensor_query.get(entity_1),
-                player_sensor_query.get(entity_2),
-            ) {
-                // (Err(eboss1), Err(eboss2), Err(eplayer1), Err(eplayer2)) => continue,
-                (Ok((_attack_sensor, boss)), Err(_), Err(_), Ok((_player_sensor, _player)))
-                | (Err(_), Ok((_attack_sensor, boss)), Ok((_player_sensor, _player)), Err(_)) => {
-                    // IDEA: MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
-                    // ^^^^^------ With Dash/Death TP for example
-
-                    // info!("DEBUG: Detected");
-                    // IDEA: add BAM_timer (each time it ends, sends a BossAttackEvent)
-                    boss_attack_event.send(BossAttackEvent {
-                        attacker_entity: **boss,
-                    });
-                }
-                _ => continue,
+                // Phase 2 - Timer
+                commands
+                    .entity(attack_sensor) // **boss
+                    .insert(AttackCooldown(Timer::from_seconds(
+                        BOSS_SMASH_COOLDOWN,
+                        TimerMode::Once,
+                    )));
             }
         }
-        // Leaving the range
-        else {
-            // IDEA: reset the BAM_timer
-        }
+        // else { info!("No playerHitbox") }
     }
-    // TODO: Phase 2 - Timer
-    // TODO: Phase 3 - Player TP proof
 }
 
 pub fn boss_attack_event_handler(
     mut boss_attack_event: EventReader<BossAttackEvent>,
     // If needed to check the Player Invulnerability state:
     // player_query: Query<Entity, (With<Player>, Without<Invulnerable>)>,
-
-    // &mut TextureAtlasSprite With<Boss>
     mut attacker_query: Query<&mut CharacterState>,
 ) {
     for BossAttackEvent { attacker_entity } in boss_attack_event.iter() {
@@ -132,7 +138,7 @@ pub fn boss_attack_event_handler(
                 *attacker_entity, e
             ),
             Ok(mut state) => {
-                *state = CharacterState::TransitionToCharge;
+                *state = CharacterState::Attack;
             }
         }
     }

@@ -91,6 +91,59 @@ If Time exists in our dimension:
 
 - [ ] Stuff we can't produce
 
+## Combat
+
+### Boss AI
+
+- Movement
+  - Won't try to dodge
+  - just want to smash the player's skull
+  - Move back (and charge) before doing a dash attack (?)
+- can feint/fake
+- Attacks
+  - Attack Player when nearby
+  - "Just Die Already"
+  One Time Attack - Phase 2 Transition
+    - Slow motion Instant/Attac
+    Meant to be paried
+  - "Try to pary that!"
+  after a certain number (10?) of pary
+    - TP behind/infront of the player
+    - feint 2 to 5 times before stricking
+    (Have to create hint or pattern (for ex: the anim being 50%+ done it's a real attack))
+  - "Back Off"
+  If too close
+    - simple attack meant to knockback
+  - Fallen Angel - "BEHOLD" (yells it once - first time doing the attack)
+    - Powerfull Fall Attack
+
+### Player Mecs
+
+MustHave
+
+- simple attack (1row)
+- charge
+- when charged:
+  - powerfull attack
+  - 2rows (slap return)
+  - Stun (if charged at least x sec)
+  - dmg calculed by % of time charged
+- Hitted
+  - Invulnerablity Frame
+  - Cancel Current Action ?
+  - Knockback?
+- run / Stop
+  - precise movement
+
+Should Have
+
+- Dash
+  - Rapid Move
+  - Invulnerablity
+- Pary
+  - Stun if pertectly timed
+  - Dmg restitution
+
 ## Name Ideas
 
 ### Favorites
