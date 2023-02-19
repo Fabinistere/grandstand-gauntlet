@@ -30,9 +30,10 @@ pub mod character {
         pub const PLAYER_TRANSITION_TO_CHARGE_FRAMES: (usize, usize) = (13, 14);
         pub const PLAYER_CHARGE_FRAMES: (usize, usize) = (15, 18);
         // TODO: Seperate Charge and Attack to perfectly activate the hitbox
-        // First Swing: (19, 23)
         pub const PLAYER_FULL_ATTACK_FRAMES: (usize, usize) = (19, 26);
-        pub const PLAYER_SECOND_ATTACK_FRAMES: (usize, usize) = (24, 26);
+        // First Swing
+        pub const PLAYER_FIRST_ATTACK_FRAMES: (usize, usize) = (19, 22);
+        pub const PLAYER_SECOND_ATTACK_FRAMES: (usize, usize) = (23, 26);
         pub const PLAYER_HIT_FRAMES: (usize, usize) = (27, 28);
         pub const PLAYER_DEAD_FRAMES: (usize, usize) = (29, 34);
     }

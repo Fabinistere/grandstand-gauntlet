@@ -245,17 +245,18 @@ fn create_player(
 ) {
     for CreatePlayerEvent(entity) in create_player_event.iter() {
         let mut animation_indices = AnimationIndices(HashMap::new());
-        animation_indices.insert(CharacterState::Idle, (0, 4));
-        animation_indices.insert(CharacterState::Attack, (19, 21)); // (19, 23)
-        animation_indices.insert(CharacterState::SecondAttack, (24, 26)); // (24, 26)
-        animation_indices.insert(CharacterState::ChargedAttack, (19, 26)); // (24, 26)
+        animation_indices.insert(CharacterState::Idle, PLAYER_IDLE_FRAMES);
+        animation_indices.insert(CharacterState::Run, PLAYER_RUN_FRAMES);
         animation_indices.insert(
             CharacterState::TransitionToCharge,
             PLAYER_TRANSITION_TO_CHARGE_FRAMES,
         );
-        animation_indices.insert(CharacterState::Charge, (15, 18));
-        animation_indices.insert(CharacterState::Run, (5, 12));
-        animation_indices.insert(CharacterState::Hit, (27, 28));
+        animation_indices.insert(CharacterState::Charge, PLAYER_CHARGE_FRAMES);
+        animation_indices.insert(CharacterState::Attack, PLAYER_FIRST_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::SecondAttack, PLAYER_SECOND_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::ChargedAttack, PLAYER_FULL_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::Hit, PLAYER_HIT_FRAMES);
+        animation_indices.insert(CharacterState::Dead, PLAYER_DEAD_FRAMES);
 
         // match transform_query.get_mut(*entity) {
         //     Err(e) => warn!("No transform in the entity, wat the freak: {:?}", e),
