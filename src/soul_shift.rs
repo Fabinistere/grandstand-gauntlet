@@ -12,12 +12,12 @@ pub struct SoulShiftPlugin;
 impl Plugin for SoulShiftPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SoulShiftEvent>()
-            .add_system(start_soul_shift)
+            .add_system(start_soul_shift.label("Soul Shift"))
             .add_system(suicide_to_soul_shift);
     }
 }
 
-/// DEBUG: Remove this ?
+// DEBUG: Remove it maybe ?
 #[derive(Component)]
 pub struct SoulShifting;
 
@@ -41,7 +41,7 @@ fn suicide_to_soul_shift(
     }
 }
 
-fn start_soul_shift(
+pub fn start_soul_shift(
     mut commands: Commands,
 
     mut soul_shift_event: EventReader<SoulShiftEvent>,

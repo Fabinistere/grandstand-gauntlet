@@ -10,7 +10,7 @@ use crate::{
     },
     constants::character::{player::*, CHAR_POSITION, FRAME_TIME},
     crowd::CrowdMember,
-    soul_shift::SoulShifting,
+    soul_shift::{start_soul_shift, SoulShifting},
 };
 
 use super::aggression::Invulnerable;
@@ -24,7 +24,7 @@ impl Plugin for PlayerPlugin {
             .add_event::<PlayerDeathEvent>()
             .insert_resource(PossesionCount(1))
             .add_startup_system(spawn_first_player)
-            .add_system(create_player.label("New Beginning"))
+            .add_system(create_player.label("New Beginning").after(start_soul_shift))
             // -- Camera --
             .add_system(camera_follow.after("New Beginning"))
             // -- Aggression --
@@ -108,8 +108,8 @@ fn player_death_event(
                         Name::new(format!("DeadBody n°{}", possesion_count.0)),
                         // AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Once)),
                     ))
-                    .remove::<Player>()
-                    .remove::<SoulShifting>();
+                    .remove::<SoulShifting>()
+                    .remove::<Player>();
 
                 // The list's growing...
                 possesion_count.0 += 1;
@@ -249,8 +249,8 @@ fn create_player(
                 CharacterState::Idle,
                 animation_indices,
                 // -- Combat --
-                Hp::default(),
-                // Hp::new(20),
+                // Hp::default(),
+                Hp::new(20),
                 Invulnerable(Timer::from_seconds(10., TimerMode::Once)),
                 // -- Hitbox --
                 RigidBody::Dynamic,
