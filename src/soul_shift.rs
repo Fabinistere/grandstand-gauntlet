@@ -1,13 +1,9 @@
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::Velocity;
-use bevy_rapier2d::prelude::*;
+// use bevy_rapier2d::prelude::Velocity;
+// use bevy_rapier2d::prelude::*;
 
 use crate::{
-    characters::{
-        animations::CharacterState,
-        movement::{MovementBundle, Speed},
-        player::{CreatePlayerEvent, Player},
-    },
+    characters::player::{CreatePlayerEvent, Player, PlayerDeathEvent},
     crowd::CrowdMember,
 };
 
@@ -15,20 +11,50 @@ pub struct SoulShiftPlugin;
 
 impl Plugin for SoulShiftPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(start_soul_shift);
+        app.add_event::<SoulShiftEvent>()
+            .add_system(start_soul_shift)
+            .add_system(suicide_to_soul_shift);
+    }
+}
+
+/// DEBUG: Remove this ?
+#[derive(Component)]
+pub struct SoulShifting;
+
+/// Happens when
+///   - soul_shift::suicide_to_soul_shift
+///     - press e
+///   - characters::aggression::damage_hit
+///     - Player's hp is = 0
+///
+/// Read in
+///   - soul_shift::start_soul_shift
+///     - SOUL SHIFTING // DOC: short explanation on whats happening
+pub struct SoulShiftEvent;
+
+fn suicide_to_soul_shift(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut soul_shift_event: EventWriter<SoulShiftEvent>,
+) {
+    if keyboard_input.just_pressed(KeyCode::E) {
+        soul_shift_event.send(SoulShiftEvent);
     }
 }
 
 fn start_soul_shift(
     mut commands: Commands,
-    keyboard_input: Res<Input<KeyCode>>,
+
+    mut soul_shift_event: EventReader<SoulShiftEvent>,
+
     crowd_member_query: Query<(Entity, &Transform), With<CrowdMember>>,
-    mut player_transform_query: Query<(Entity, &Transform, &mut CharacterState), With<Player>>,
+    player_transform_query: Query<(Entity, &Transform), With<Player>>,
+
+    mut death_event: EventWriter<PlayerDeathEvent>,
     mut create_player_event: EventWriter<CreatePlayerEvent>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::E) {
-        let (player_entity, player_transform, mut player_state) =
-            player_transform_query.single_mut();
+    for _ in soul_shift_event.iter() {
+        info!("Soul Shift Event");
+        let (player_entity, player_transform) = player_transform_query.single();
 
         let mut closest_member = None;
         let mut min_distance = f32::MAX;
@@ -44,16 +70,25 @@ fn start_soul_shift(
 
         let closest_member = match closest_member {
             Some(e) => e,
+            // TODO: End of the Game (no more life left) Sadge !
             None => return,
         };
 
-        // Update current player
-        *player_state = CharacterState::Dead;
-        commands.entity(player_entity).remove::<Player>();
+        // ------- Kill for good the old body -------
 
-        // Update new player
-        commands.entity(closest_member).remove::<CrowdMember>();
-        commands.entity(closest_member).insert(Player);
+        commands
+            .entity(player_entity)
+            .insert(SoulShifting)
+            .remove::<Player>();
+        // DEBUG: maybe will be too slow and all single on Player will break
+        // ^^^^^^------ System Ordering
+        death_event.send(PlayerDeathEvent(player_entity));
+
+        // ------- Update new player -------
+        commands
+            .entity(closest_member)
+            .insert((Player, SoulShifting))
+            .remove::<CrowdMember>();
         create_player_event.send(CreatePlayerEvent(closest_member));
     }
 }

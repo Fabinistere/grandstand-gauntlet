@@ -1,6 +1,6 @@
 use bevy::{prelude::*, utils::HashMap};
 
-use super::{npcs::boss::Boss, player::Player};
+use super::{aggression::DeadBody, npcs::boss::Boss, player::Player};
 use crate::crowd::CrowdMember;
 
 #[derive(Default, Debug, Clone, Component, Eq, Hash, PartialEq)]
@@ -14,6 +14,8 @@ pub enum CharacterState {
     Run,
     Hit,
     Dead,
+    // OPTIMIZE: Stop animate
+    // PermaDeath,
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -26,18 +28,21 @@ pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
 ///
 /// TODO: longer animation of "getting hit"
 pub fn animate_character(
+    mut commands: Commands,
+
     time: Res<Time>,
     mut query: Query<
         (
+            Entity,
             &AnimationIndices,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
             &mut CharacterState,
         ),
-        Or<(With<Player>, With<Boss>, With<CrowdMember>)>,
+        Or<(With<Player>, With<Boss>, With<CrowdMember>, With<DeadBody>)>,
     >,
 ) {
-    for (indices, mut timer, mut sprite, mut character_state) in &mut query {
+    for (character, indices, mut timer, mut sprite, mut character_state) in &mut query {
         timer.tick(time.delta());
 
         if timer.just_finished() {
@@ -53,20 +58,28 @@ pub fn animate_character(
                 // TODO: longer animation of "getting hit"
                 // Idle when stop running/attacking/getting hit
                 next_phase = Some(CharacterState::Idle);
+            } else if *character_state == CharacterState::Dead {
+                // CharacterState::PermaDeath (last frame to last frame)
+                next_phase = Some(CharacterState::Dead);
             } else {
                 // Loop
                 next_phase = None;
             }
 
             if sprite.index == current_indices.1 {
-                match next_phase {
-                    Some(new_state) => {
-                        sprite.index = indices[&new_state].0;
-                        // update state
-                        *character_state = new_state;
-                    }
-                    None => {
-                        sprite.index = current_indices.0;
+                // Final Frame of Death
+                if *character_state == CharacterState::Dead {
+                    commands.entity(character).remove::<AnimationTimer>();
+                } else {
+                    match next_phase {
+                        Some(new_state) => {
+                            sprite.index = indices[&new_state].0;
+                            // update state
+                            *character_state = new_state;
+                        }
+                        None => {
+                            sprite.index = current_indices.0;
+                        }
                     }
                 }
             } else {

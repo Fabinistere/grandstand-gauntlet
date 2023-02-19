@@ -29,13 +29,13 @@ use super::Boss;
 //     }
 // }
 
-///
 /// Happens when:
 ///   - character::npcs::boss::boss_close_detection
 ///     - The player hitbox/Sensor enters the BossSensor
 ///   - character::npcs::boss::???
 ///     - The player hitbox/Sensor is still in the BossSensor
 ///     They must be punished by sanding their bones.
+///
 /// Read in
 ///   - character::npcs::boss::aggression::boss_attack_event_handler
 ///     - Launch an attack to the current facing direction

@@ -1,7 +1,7 @@
 use crate::{
     characters::animations::{AnimationIndices, AnimationTimer, CharacterState},
     constants::{
-        character::CROWD_CHARACTER_Z,
+        character::{player::*, CROWD_CHARACTER_Z},
         crowd::{CROWD_SIZE, CROWD_SPAN},
     },
 };
@@ -37,7 +37,7 @@ fn texture_not_loaded(character_spritehseet_loaded: Res<CharacterSpriteSheetLoad
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load("textures/character/character_spritesheet.png");
+    let image = asset_server.load("textures/character/character_spritesheet_v2.png");
     commands.insert_resource(CharacterSpritesheetImage(image));
 }
 
@@ -68,14 +68,17 @@ fn generate_crowd(
 ) {
     if let Some(image_handle) = assets.get(&**character_spritesheet_image) {
         let mut animation_indices = AnimationIndices(HashMap::new());
-        animation_indices.insert(CharacterState::Idle, (0, 4));
-        animation_indices.insert(CharacterState::Attack, (19, 23));
-        animation_indices.insert(CharacterState::SecondAttack, (24, 26));
-        animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
-        animation_indices.insert(CharacterState::Charge, (15, 18));
-        animation_indices.insert(CharacterState::Run, (5, 12));
-        animation_indices.insert(CharacterState::Hit, (27, 28));
-        animation_indices.insert(CharacterState::Dead, (29, 33));
+        animation_indices.insert(CharacterState::Idle, PLAYER_IDLE_FRAMES);
+        animation_indices.insert(CharacterState::Run, PLAYER_RUN_FRAMES);
+        animation_indices.insert(
+            CharacterState::TransitionToCharge,
+            PLAYER_TRANSITION_TO_CHARGE_FRAMES,
+        );
+        animation_indices.insert(CharacterState::Charge, PLAYER_CHARGE_FRAMES);
+        animation_indices.insert(CharacterState::Attack, PLAYER_FULL_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::SecondAttack, PLAYER_SECOND_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::Hit, PLAYER_HIT_FRAMES);
+        animation_indices.insert(CharacterState::Dead, PLAYER_DEAD_FRAMES);
 
         **character_spritehseet_loaded = true;
         let image_handle = image_handle.clone();
@@ -102,7 +105,7 @@ fn generate_crowd(
 
             let texture_handle = assets.add(Image::from_dynamic(image_dynamic, true));
             let texture_atlas =
-                TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
+                TextureAtlas::from_grid(texture_handle, Vec2::new(200., 200.), 35, 1, None, None);
             let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
             let texture_atlas_sprite = TextureAtlasSprite::new(0);
