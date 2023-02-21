@@ -229,7 +229,6 @@ fn player_attack_hitbox_activation(
                     }
                 }
             }
-            
         }
     }
 }
@@ -268,7 +267,7 @@ fn attack_collision(
 
     target_query: Query<Entity, (Without<Invulnerable>, Without<SoulShifting>)>,
     
-    // vv-- They has as child a attackHitbox which inherit their transform
+    // vv-- They have as a child a attackHitbox which inherit their transform
     attack_sensor_query: Query<(Entity, &Parent), With<AttackSensor>>,
 
     mut damage_hit_event: EventWriter<DamageHitEvent>,
@@ -289,12 +288,11 @@ fn attack_collision(
                                         attack_hitbox: attack_hitbox_entity,
                                         target: **target
                                     });
-                                    info!("Damage Hit Event !");
+                                    // info!("Damage Hit Event !");
                                 }
                             }
                         }
                     }
-    
                 }
             }
         }
@@ -323,7 +321,7 @@ fn damage_hit(
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
 ) {
     for DamageHitEvent {attack_hitbox, target} in damage_hit_event.iter() {
-        // There is much of it ----vvvv
+        // There is no longer a long queue of events
         // info!("Damage Hit Event !");
         match (attack_hitbox_query.get(*attack_hitbox), target_query.get_mut(*target)) {
             // Invulnerable or SoulShifting target
@@ -350,11 +348,22 @@ fn damage_hit(
                     }
                 } else {
                     hp.current -= attack_damage.0;
-                    // TODO: Seperate player and boss gestion of getting hit
-                    // TODO: Invulnerable Hint
+                    // Seperate player and boss gestion of getting hit
+                    let invul_timer;
+                    // IDEA: Invulnerable Hint
+                    match player_query.get(*target) {
+                        // if not a player (normally is a boss)
+                        Err(_) => {
+                            invul_timer = 0.5;
+                        }
+                        Ok(_) => {
+                            invul_timer = 2.;
+                        }
+                    }
+
                     commands
                         .entity(*target)
-                        .insert(Invulnerable(Timer::from_seconds(2., TimerMode::Once)));
+                        .insert(Invulnerable(Timer::from_seconds(invul_timer, TimerMode::Once)));
                 }
             }
         }   

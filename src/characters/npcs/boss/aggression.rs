@@ -85,6 +85,8 @@ pub fn display_boss_hp(
 /// And we could just deactivate the player hitbox if Invulnerable by removing `ActiveEvents`
 ///
 /// ^^^----- I don't know if that could just work: (if not) for more depts: [Collision groups and solver groups](https://rapier.rs/docs/user_guides/bevy_plugin/colliders/#collision-groups-and-solver-groups)
+///
+/// I does not work. ActiveEvents only allow sending events that the player can control.
 pub fn boss_close_detection(
     mut commands: Commands,
 

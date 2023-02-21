@@ -18,8 +18,6 @@ pub enum CharacterState {
     Run,
     Hit,
     Dead,
-    // OPTIMIZE: Stop animate
-    // PermaDeath,
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -57,14 +55,23 @@ pub fn animate_character(
                 || *character_state == CharacterState::Attack
                 || *character_state == CharacterState::SecondAttack
                 || *character_state == CharacterState::ChargedAttack
-                || *character_state == CharacterState::Hit
             {
-                // TODO: longer animation of "getting hit"
                 // Idle when stop running/attacking/getting hit
                 next_phase = Some(CharacterState::Idle);
             } else if *character_state == CharacterState::TransitionToCharge {
                 // Charging
                 next_phase = Some(CharacterState::Charge);
+            } else if *character_state == CharacterState::Hit {
+                // TODO: longer animation of "getting hit"
+                // IDEA: Invulnerable Hint - hit anim prolongation or
+                // When getting hit:
+                // if Invulnerable then next = hit
+                // next_phase = Some(CharacterState::Hit);
+                // else next = Idle
+                next_phase = Some(CharacterState::Idle);
+
+                // let a = sprite.color.a();
+                // sprite.color.set_a(a * 0.99);
             } else if *character_state == CharacterState::Dead {
                 // CharacterState::PermaDeath (last frame to last frame)
                 next_phase = Some(CharacterState::Dead);
