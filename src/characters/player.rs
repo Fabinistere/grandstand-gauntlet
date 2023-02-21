@@ -16,6 +16,8 @@ use crate::{
     soul_shift::{start_soul_shift, SoulShifting},
 };
 
+use super::Freeze;
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
@@ -115,7 +117,6 @@ fn player_death_event(
 
     mut possesion_count: ResMut<PossesionCount>,
     mut player_query: Query<(Entity, &mut Velocity, &mut CharacterState), Without<CrowdMember>>,
-    // mut soul_shift_event: EventWriter<SoulShiftEvent>,
 ) {
     for player_death in death_event.iter() {
         // info!("DEATH EVENNNT !!");
@@ -137,13 +138,12 @@ fn player_death_event(
 
                 // The list's growing...
                 possesion_count.0 += 1;
-
-                // soul_shift_event.send(SoulShiftEvent);
             }
         }
     }
 }
 
+/// Remove the hitbox/sensor from all new DeadBodies.
 fn clean_up_dead_bodies(mut commands: Commands, dead_body_query: Query<Entity, Added<DeadBody>>) {
     for dead_body in dead_body_query.iter() {
         commands.entity(dead_body).despawn_descendants();
@@ -155,6 +155,8 @@ fn clean_up_dead_bodies(mut commands: Commands, dead_body_query: Query<Entity, A
 /// TODO: Movement should be links to the DeltaTime
 /// TODO: Dying while running skip the death animation and the velocity reset
 fn player_movement(
+    mut commands: Commands,
+
     keyboard_input: Res<Input<KeyCode>>,
     mut player_query: Query<
         (
@@ -177,8 +179,12 @@ fn player_movement(
             || *player_state == CharacterState::ChargedAttack
         {
             rb_vel.linvel = Vect::ZERO;
+            commands.entity(player).insert(Freeze);
             return;
         }
+
+        // REFACTOR: Freeze component to tell to stop parallax movement
+        commands.entity(player).remove::<Freeze>();
 
         let left = keyboard_input.pressed(KeyCode::Q)
             || keyboard_input.pressed(KeyCode::Left)

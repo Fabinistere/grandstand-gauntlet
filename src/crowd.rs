@@ -4,6 +4,7 @@ use crate::{
         character::player::*,
         crowd::{CROWD_SIZE, CROWD_SPAN, CROWD_Y, CROWD_Z},
     },
+    locations::run_if_the_player_is_not_frozen,
 };
 use bevy::{ecs::schedule::ShouldRun, prelude::*, utils::HashMap};
 use rand::Rng;
@@ -14,7 +15,11 @@ impl Plugin for CrowdPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(generate_crowd.with_run_criteria(texture_not_loaded))
-            .add_system(move_crowd_with_background)
+            .add_system_set(
+                SystemSet::new()
+                    .with_run_criteria(run_if_the_player_is_not_frozen)
+                    .with_system(move_crowd_with_background),
+            )
             .insert_resource(CharacterSpriteSheetLoaded(false));
     }
 }
@@ -75,7 +80,7 @@ fn generate_crowd(
             PLAYER_TRANSITION_TO_CHARGE_FRAMES,
         );
         animation_indices.insert(CharacterState::Charge, PLAYER_CHARGE_FRAMES);
-        animation_indices.insert(CharacterState::Attack, PLAYER_FULL_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::Attack, PLAYER_CHARGED_ATTACK_FRAMES);
         animation_indices.insert(CharacterState::SecondAttack, PLAYER_SECOND_ATTACK_FRAMES);
         animation_indices.insert(CharacterState::Hit, PLAYER_HIT_FRAMES);
         animation_indices.insert(CharacterState::Dead, PLAYER_DEAD_FRAMES);
