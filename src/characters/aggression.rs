@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
@@ -63,7 +64,7 @@ pub struct FlipAttackSensor(pub Entity);
 #[derive(Component)]
 pub struct AttackHitbox(pub i32);
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Debug, Deref, DerefMut)]
 pub struct Invulnerable(pub Timer);
 
 #[derive(Component, Deref, DerefMut)]
@@ -72,7 +73,7 @@ pub struct AttackCooldown(pub Timer);
 #[derive(Component)]
 pub struct DeadBody;
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct Hp {
     pub current: i32,
     pub max: i32,
@@ -304,9 +305,6 @@ fn attack_collision(
 /// Send a ~~Death Event~~ Soul Shift Event if it's too much...
 /// 
 /// # Note
-/// 
-/// TODO: Lower the Invulnerability post hit of the boss
-/// ^^^^^---- Allow Spamming Attack and Slap Return
 fn damage_hit(
     mut damage_hit_event: EventReader<DamageHitEvent>,
     
@@ -340,8 +338,6 @@ fn damage_hit(
                             // TODO: Boss Death Event
                         }
                         Ok(_) => {
-                            // TODO: send Player Death Event when the player die
-                            // atm all dying entity will trigger the soul shift/kill the player
                             // commands.entity(*target).insert(SoulShifting);
                             soul_shift_event.send(SoulShiftEvent(*target));
                         }
@@ -371,7 +367,7 @@ fn damage_hit(
 }
 
 /// Change the Animation to Hit when being hurted.
-/// TODO: Prevent hit anim while healing
+/// TODO: feature - Prevent hit anim while healing
 /// Carefull: Even if the Hp is rising this animation will trigger
 fn damage_animation(
     // DEBUG: Crowd getting hit (maybe the prb is here)

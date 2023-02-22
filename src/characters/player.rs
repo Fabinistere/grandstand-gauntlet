@@ -326,7 +326,6 @@ fn create_player(
                 ));
 
                 // -- Attack Hitbox --
-                // TODO: Active the sensor only for certain frame
                 parent
                     .spawn((
                         SpatialBundle {
