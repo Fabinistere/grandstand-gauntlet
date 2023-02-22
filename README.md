@@ -1,5 +1,13 @@
 # Grandstand Gauntlet
 
+Commands line to compile wasm:
+
+```text
+cargo build --release --target wasm32-unknown-unknown
+
+wasm-bindgen --out-dir ./grandstand-gauntlet/ --target web ./target/wasm32-unknown-unknown/release/grandstand-gauntlet.wasm
+```
+
 Game's Links:
 
 - [Submission Brackeys 2023.1](https://fabinistere.itch.io/grandstand-gauntlet)
