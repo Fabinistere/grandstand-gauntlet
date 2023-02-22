@@ -28,6 +28,9 @@ pub fn stare_player(
     boss_sprite.flip_x = boss_transform.translation.x > player_transform.translation.x;
 }
 
+/// # Note
+///
+/// TODO: An attack/stroke must be prioritized before the anim run/idle.
 pub fn chase_player(
     mut boss_query: Query<
         (
