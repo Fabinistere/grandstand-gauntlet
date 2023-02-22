@@ -28,7 +28,7 @@ pub fn stare_player(
     boss_sprite.flip_x = boss_transform.translation.x > player_transform.translation.x;
 }
 
-pub fn move_towards_player(
+pub fn chase_player(
     mut boss_query: Query<
         (
             Entity,
@@ -40,7 +40,7 @@ pub fn move_towards_player(
         (With<Boss>, With<ChaseBehavior>),
     >,
     player_query: Query<&Transform, (With<Player>, Without<CrowdMember>)>,
-    // TODO: time: Res<Time>,
+    time: Res<Time>,
 ) {
     if let Ok((_boss, mut boss_state, boss_transform, speed, mut boss_vel)) =
         boss_query.get_single_mut()
@@ -52,9 +52,21 @@ pub fn move_towards_player(
         let left = direction.x < boss_transform.translation.x;
         let right = direction.x > boss_transform.translation.x;
 
-        let x_axis = -(left as i8) + right as i8;
+        let close_range_width = boss_transform.scale.x * 10.;
 
-        boss_vel.linvel.x = x_axis as f32 * **speed * 40.;
+        // The boss is in range with the player
+        if direction.x - close_range_width < boss_transform.translation.x
+            && direction.x + close_range_width > boss_transform.translation.x
+        {
+            boss_vel.linvel = Vect::ZERO;
+            // TODO: New beahvior if in range
+        } else {
+            // The boss is away from the player
+
+            let x_axis = -(left as i8) + right as i8;
+
+            boss_vel.linvel.x = x_axis as f32 * **speed * 200. * time.delta_seconds();
+        }
 
         // ---- Animation ----
 
@@ -104,21 +116,29 @@ pub fn close_range_detection(
         ) {
             // only one of them contains DetectionSensor: detection_sensor
             // and the other one is a player_hitbox
-            (Ok(detection_sensor), Err(_e1), Err(_e2), Ok(player_hitbox))
-            | (Err(_e1), Ok(detection_sensor), Ok(player_hitbox), Err(_e2)) => {
-                // DEBUG: info!(target: "Collision with a sensor and a player hitbox", "{:?} and {:?}", detection_sensor, player_hitbox);
+            (
+                Ok((_detection_sensor, b_parent)),
+                Err(_e1),
+                Err(_e2),
+                Ok((_player_hitbox, p_parent)),
+            )
+            | (
+                Err(_e1),
+                Ok((_detection_sensor, b_parent)),
+                Ok((_player_hitbox, p_parent)),
+                Err(_e2),
+            ) => {
+                // DEBUG: info!(target: "Collision with a sensor and a player hitbox", "{:?} and {:?}", _detection_sensor, _player_hitbox);
 
-                match (
-                    boss_query.get(**detection_sensor.1),
-                    player_query.get(**player_hitbox.1),
-                ) {
-                    (Ok((boss, _boss_speed, _boss_vel)), Ok(_player_location)) => {
+                match (boss_query.get_mut(**b_parent), player_query.get(**p_parent)) {
+                    (Ok((boss, _boss_speed, mut boss_vel)), Ok(_player_location)) => {
                         // just entered the personal space
                         if rapier_context.intersection_pair(entity_1, entity_2) == Some(true) {
-                            info!("DEBUG: Personal Space entered");
+                            // info!("DEBUG: Personal Space entered");
                             commands.entity(boss).remove::<ChaseBehavior>();
+                            boss_vel.linvel = Vect::ZERO;
                         } else {
-                            info!("DEBUG: Personal Space exited");
+                            // info!("DEBUG: Personal Space exited");
                             commands.entity(boss).insert(ChaseBehavior);
                         }
                     }

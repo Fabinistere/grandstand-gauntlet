@@ -15,7 +15,7 @@ use crate::{
 
 use self::{
     aggression::{BossSensor, boss_attack_hitbox_activation, boss_close_detection, display_boss_hp},
-    movement::{stare_player, move_towards_player, close_range_detection},
+    movement::{stare_player, chase_player},
 };
 
 pub struct BossPlugin;
@@ -26,14 +26,14 @@ impl Plugin for BossPlugin {
         app 
             .add_startup_system(setup_boss)
             // -- Movement --
-            .add_system(close_range_detection)
-            .add_system(move_towards_player)
+            // .add_system(close_range_detection)
+            .add_system(chase_player)
             .add_system(stare_player)
             // -- UI --
             .add_system(display_boss_hp)
             // -- Aggression --
             .add_system(boss_close_detection)
-            .add_system(boss_attack_hitbox_activation.label("Boss Attack Hitbox Activation"))
+            .add_system(boss_attack_hitbox_activation.label("Boss Attack Hitbox Activation").after(boss_close_detection))
             // .add_plugin(AggressionBossPlugin) 
             ;
     }
@@ -106,9 +106,9 @@ fn setup_boss(
             Boss,
             Name::new("Boss"),
             // -- Animation --
-            AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Repeating)),
-            animation_indices,
             CharacterState::default(),
+            animation_indices,
+            AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Repeating)),
             // -- Combat --
             Hp::new(BOSS_HP),
             AttackCooldown(Timer::from_seconds(
@@ -116,9 +116,7 @@ fn setup_boss(
                 TimerMode::Once,
             )),
             ChaseBehavior,
-            // -- Hitbox --
-            RigidBody::Dynamic,
-            LockedAxes::ROTATION_LOCKED,
+            // -- Movement --
             MovementBundle {
                 speed: Speed::default(),
                 velocity: Velocity {
@@ -126,6 +124,9 @@ fn setup_boss(
                     angvel: 0.,
                 },
             },
+            // -- Hitbox --
+            RigidBody::Dynamic,
+            LockedAxes::ROTATION_LOCKED,
         ))
         .with_children(|parent| {
             // Boss Hitbox
@@ -140,11 +141,10 @@ fn setup_boss(
 
             // Boss Movement Range Sensor
             parent.spawn((
-                Collider::ball(80.),
+                Collider::ball(60.),
                 Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
                 BossMovementSensor,
                 Sensor,
-                ActiveEvents::COLLISION_EVENTS,
                 Name::new("Boss Movement Range"),
             ));
 
