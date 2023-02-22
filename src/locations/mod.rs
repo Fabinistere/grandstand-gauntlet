@@ -1,5 +1,8 @@
 use bevy::prelude::*;
+use bevy_ecs::schedule::ShouldRun;
 use bevy_parallax::{LayerData, ParallaxMoveEvent, ParallaxResource};
+
+use crate::characters::{player::Player, Freeze};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 enum Location {
@@ -83,10 +86,20 @@ impl Plugin for LocationsPlugin {
             // )
             .add_system_set(
                 SystemSet::on_update(Location::Desert)
-                    // .with_run_criteria(run_if_in_level_one)
+                    .with_run_criteria(run_if_the_player_is_not_frozen)
                     .with_system(move_parallax_system)
             )
             ;
+    }
+}
+
+pub fn run_if_the_player_is_not_frozen(
+    player_query: Query<Entity, (With<Player>, Without<Freeze>)>,
+) -> ShouldRun {
+    if let Ok(_) = player_query.get_single() {
+        ShouldRun::Yes
+    } else {
+        ShouldRun::No
     }
 }
 

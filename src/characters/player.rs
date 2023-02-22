@@ -11,10 +11,12 @@ use crate::{
         animations::{AnimationIndices, AnimationTimer, CharacterState},
         movement::{CharacterHitbox, MovementBundle, Speed},
     },
-    constants::character::{player::*, CHAR_POSITION, FRAME_TIME},
+    constants::character::{player::*, FRAME_TIME},
     crowd::CrowdMember,
     soul_shift::{start_soul_shift, SoulShifting},
 };
+
+use super::Freeze;
 
 pub struct PlayerPlugin;
 
@@ -29,12 +31,12 @@ impl Plugin for PlayerPlugin {
             // -- Camera --
             .add_system(camera_follow.after("New Beginning"))
             // -- Aggression --
-            .add_system(player_attack)
             .add_system(display_player_hp)
             .add_system(player_death_event.label("Player Death").before("New Beginning"))
             .add_system(clean_up_dead_bodies.after("Player Death"))
+            .add_system(player_attack.after("Player Death"))
             // -- Movement --
-            .add_system(player_movement)
+            .add_system(player_movement.after("Player Death"))
             ;
     }
 }
@@ -51,7 +53,6 @@ pub struct PlayerHitbox;
 #[derive(Debug, Deref, DerefMut)]
 pub struct CreatePlayerEvent(pub Entity);
 
-// #[derive()]
 /// DOC
 /// Happens when
 ///   - soul_shift::start_soul_shift
@@ -63,6 +64,9 @@ pub struct CreatePlayerEvent(pub Entity);
 ///     - Soul Shift Event
 pub struct PlayerDeathEvent(pub Entity);
 
+/// # Note
+///
+/// TODO: Make the charge much more valuable than the spamming
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
     buttons: Res<Input<MouseButton>>,
@@ -73,7 +77,7 @@ fn player_attack(
             &mut Velocity,
             &mut AttackCharge,
         ),
-        With<Player>,
+        (With<Player>, Without<DeadBody>),
     >,
 ) {
     if let Ok((_player, mut state, mut rb_vel, mut attack_charge)) = player_query.get_single_mut() {
@@ -104,6 +108,9 @@ fn display_player_hp(
     }
 }
 
+/// # Note
+///
+/// REFACTOR: DeadBodies Handler - these events are kinda weak (atm we have to abuse the tricks around...)
 fn player_death_event(
     mut death_event: EventReader<PlayerDeathEvent>,
 
@@ -111,7 +118,6 @@ fn player_death_event(
 
     mut possesion_count: ResMut<PossesionCount>,
     mut player_query: Query<(Entity, &mut Velocity, &mut CharacterState), Without<CrowdMember>>,
-    // mut soul_shift_event: EventWriter<SoulShiftEvent>,
 ) {
     for player_death in death_event.iter() {
         // info!("DEATH EVENNNT !!");
@@ -120,10 +126,11 @@ fn player_death_event(
             Err(e) => warn!("DEBUG: No player.... {:?}", e),
             Ok((player, mut rb_vel, mut state)) => {
                 *state = CharacterState::Dead;
-                rb_vel.linvel.x = 0.;
+                rb_vel.linvel = Vect::ZERO;
                 commands
                     .entity(player)
                     .insert((
+                        // already inserted in the soul_shift fn
                         DeadBody,
                         Name::new(format!("DeadBody n°{}", possesion_count.0)),
                         // AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Once)),
@@ -133,23 +140,29 @@ fn player_death_event(
 
                 // The list's growing...
                 possesion_count.0 += 1;
-
-                // soul_shift_event.send(SoulShiftEvent);
             }
         }
     }
 }
 
-fn clean_up_dead_bodies(mut commands: Commands, dead_body_query: Query<Entity, Added<DeadBody>>) {
-    for dead_body in dead_body_query.iter() {
+/// Remove the hitbox/sensor from all new DeadBodies.
+fn clean_up_dead_bodies(
+    mut commands: Commands,
+    mut dead_body_query: Query<(Entity, &mut Velocity), Added<DeadBody>>,
+) {
+    for (dead_body, mut rb_vel) in dead_body_query.iter_mut() {
         commands.entity(dead_body).despawn_descendants();
+        rb_vel.linvel = Vect::ZERO;
     }
 }
 
 /// # Note
 ///
 /// TODO: Movement should be links to the DeltaTime
+/// TODO: Dying while running skip the death animation and the velocity reset
 fn player_movement(
+    mut commands: Commands,
+
     keyboard_input: Res<Input<KeyCode>>,
     mut player_query: Query<
         (
@@ -159,8 +172,9 @@ fn player_movement(
             &mut TextureAtlasSprite,
             &mut CharacterState,
         ),
-        (With<Player>, Without<CrowdMember>),
+        (With<Player>, Without<CrowdMember>, Without<DeadBody>),
     >,
+    // TODO: time: Res<Time>,
     mut flip_direction_event: EventWriter<FlipAttackSensorEvent>,
 ) {
     if let Ok((player, speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
@@ -169,11 +183,17 @@ fn player_movement(
         // If player is attacking, don't allow them to move
         if *player_state == CharacterState::Attack
             || *player_state == CharacterState::SecondAttack
+            // || *player_state == CharacterState::TransitionToCharge
+            // || *player_state == CharacterState::Charge
             || *player_state == CharacterState::ChargedAttack
         {
             rb_vel.linvel = Vect::ZERO;
+            commands.entity(player).insert(Freeze);
             return;
         }
+
+        // REFACTOR: Freeze component to tell to stop parallax movement
+        commands.entity(player).remove::<Freeze>();
 
         let left = keyboard_input.pressed(KeyCode::Q)
             || keyboard_input.pressed(KeyCode::Left)
@@ -182,7 +202,7 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        rb_vel.linvel.x = x_axis as f32 * **speed;
+        rb_vel.linvel.x = x_axis as f32 * **speed; // * 20. * time.delta_second()
 
         // ---- Animation ----
 
@@ -229,7 +249,7 @@ fn spawn_first_player(
             SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle,
                 sprite: texture_atlas_sprite,
-                transform: Transform::from_translation(CHAR_POSITION.into()),
+                transform: Transform::from_translation(PLAYER_POSITION.into()),
                 ..default()
             },
         ))
@@ -253,7 +273,7 @@ fn create_player(
         animation_indices.insert(CharacterState::Charge, PLAYER_CHARGE_FRAMES);
         animation_indices.insert(CharacterState::Attack, PLAYER_FIRST_ATTACK_FRAMES);
         animation_indices.insert(CharacterState::SecondAttack, PLAYER_SECOND_ATTACK_FRAMES);
-        animation_indices.insert(CharacterState::ChargedAttack, PLAYER_FULL_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::ChargedAttack, PLAYER_CHARGED_ATTACK_FRAMES);
         animation_indices.insert(CharacterState::Hit, PLAYER_HIT_FRAMES);
         animation_indices.insert(CharacterState::Dead, PLAYER_DEAD_FRAMES);
 
@@ -315,7 +335,6 @@ fn create_player(
                 ));
 
                 // -- Attack Hitbox --
-                // TODO: Active the sensor only for certain frame
                 parent
                     .spawn((
                         SpatialBundle {

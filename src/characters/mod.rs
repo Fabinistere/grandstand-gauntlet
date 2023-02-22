@@ -6,6 +6,8 @@ pub mod player;
 
 use bevy::prelude::*;
 
+use crate::locations::run_if_the_player_is_not_frozen;
+
 use self::{
     aggression::AggressionPlugin, animations::animate_character,
     animations::jump_frame_player_state, player::PlayerPlugin, npcs::NPCsPlugin,
@@ -21,9 +23,22 @@ impl Plugin for CharacterPlugin {
             .add_plugin(PlayerPlugin)
             .add_plugin(AggressionPlugin)
             // -- Animation --
-            .add_system(animate_character)
-            .add_system(jump_frame_player_state)
-            .add_system(move_dead_bodies)
+            .add_system_set(
+                SystemSet::new()
+                    .with_run_criteria(run_if_the_player_is_not_frozen)
+                    .with_system(move_dead_bodies)
+            )
+            .add_system_set_to_stage(
+                // ensure that the changes in each CharacterPhase are made
+                CoreStage::PostUpdate,
+                SystemSet::new()
+                    .with_system(jump_frame_player_state.before(animate_character))
+            )
+            .add_system_set_to_stage(
+                CoreStage::PostUpdate,
+                SystemSet::new()
+                    .with_system(animate_character)
+            )
             ;
     }
 }
@@ -34,6 +49,10 @@ pub struct Invulnerable;
 #[derive(Component)]
 pub struct DeadBody;
 
+#[derive(Component)]
+pub struct Freeze;
+
+/// REFACTOR: Parallax movement on static entities
 fn move_dead_bodies(
     mut query: Query<&mut Transform, With<DeadBody>>,
     keyboard_input: Res<Input<KeyCode>>,

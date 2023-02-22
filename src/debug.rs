@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_inspector_egui::{RegisterInspectable, WorldInspectorPlugin};
 
-use crate::characters::animations::CharacterState;
+use crate::characters::{aggression::Hp, animations::CharacterState};
 
 pub struct DebugPlugin;
 
@@ -11,6 +11,7 @@ impl Plugin for DebugPlugin {
         if cfg!(debug_assertions) {
             app.add_plugin(WorldInspectorPlugin::new())
                 .register_inspectable::<CharacterState>()
+                .register_inspectable::<Hp>()
                 // UI
                 ;
         }

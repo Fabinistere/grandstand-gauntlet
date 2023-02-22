@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_inspector_egui::Inspectable;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
@@ -63,7 +64,7 @@ pub struct FlipAttackSensor(pub Entity);
 #[derive(Component)]
 pub struct AttackHitbox(pub i32);
 
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Debug, Deref, DerefMut)]
 pub struct Invulnerable(pub Timer);
 
 #[derive(Component, Deref, DerefMut)]
@@ -72,7 +73,7 @@ pub struct AttackCooldown(pub Timer);
 #[derive(Component)]
 pub struct DeadBody;
 
-#[derive(Component)]
+#[derive(Component, Inspectable)]
 pub struct Hp {
     pub current: i32,
     pub max: i32,
@@ -130,8 +131,8 @@ fn flip_attack_sensor(
     // With<Sensor>, 
     mut attack_sensor_query: Query<&mut Transform, With<AttackSensor>>,
 ) {
-    for event in flip_direction_event.iter() {
-        match character_query.get(event.0) {
+    for FlipAttackSensorEvent(character_to_flip) in flip_direction_event.iter() {
+        match character_query.get(*character_to_flip) {
             Err(e) => warn!("can't flip the attack of this entity: {:?}", e),
             Ok(children) => {
                 for child in children.iter() {
@@ -156,15 +157,30 @@ fn invulnerability_timer(
     time: Res<Time>,
     
     // The Boss has their cooldown in their Attack Range Sensor
-    mut invulnerable_character: Query<(Entity, &mut Invulnerable)>,
+    mut invulnerable_character: Query<(Entity, &mut Invulnerable, &mut TextureAtlasSprite)>,
 ) {
-    for (character, mut invulnerability) in invulnerable_character.iter_mut() {
+    for (character, mut invulnerability, mut sprite) in invulnerable_character.iter_mut() {
+        // eprintln!("{:#?}",invulnerability);
         invulnerability.tick(time.delta());
 
+        // OPTIMIZE: The color change just need to change once per sec (not every frame)
+        const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
+        // change it to be custom (character depending)
+        // 246 215 215
+        const HIT_COLOR: Color = Color::rgb(0.96, 0.84, 0.84);
+        
         if invulnerability.just_finished() {
+            sprite.color = WHITE;
             commands
                 .entity(character)
                 .remove::<Invulnerable>();
+        } else {
+            // if the integer part of the timer left is odd
+            sprite.color = if (invulnerability.elapsed_secs() as i32).rem_euclid(2) == 1 {
+                HIT_COLOR
+            } else {
+                WHITE
+            };
         }
     }
 }
@@ -229,7 +245,6 @@ fn player_attack_hitbox_activation(
                     }
                 }
             }
-            
         }
     }
 }
@@ -268,7 +283,7 @@ fn attack_collision(
 
     target_query: Query<Entity, (Without<Invulnerable>, Without<SoulShifting>)>,
     
-    // vv-- They has as child a attackHitbox which inherit their transform
+    // vv-- They have as a child a attackHitbox which inherit their transform
     attack_sensor_query: Query<(Entity, &Parent), With<AttackSensor>>,
 
     mut damage_hit_event: EventWriter<DamageHitEvent>,
@@ -289,12 +304,11 @@ fn attack_collision(
                                         attack_hitbox: attack_hitbox_entity,
                                         target: **target
                                     });
-                                    info!("Damage Hit Event !");
+                                    // info!("Damage Hit Event !");
                                 }
                             }
                         }
                     }
-    
                 }
             }
         }
@@ -304,6 +318,10 @@ fn attack_collision(
 /// Inflicts Damage (contains within the attack hitbox) to the touched entity.
 /// 
 /// Send a ~~Death Event~~ Soul Shift Event if it's too much...
+/// 
+/// # Note
+/// 
+/// BUG: If the player is in the two attack hitbox delimitors (Smash) - the two will hurt them
 fn damage_hit(
     mut damage_hit_event: EventReader<DamageHitEvent>,
     
@@ -318,7 +336,7 @@ fn damage_hit(
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
 ) {
     for DamageHitEvent {attack_hitbox, target} in damage_hit_event.iter() {
-        // There is much of it ----vvvv
+        // There is no longer a long queue of events
         // info!("Damage Hit Event !");
         match (attack_hitbox_query.get(*attack_hitbox), target_query.get_mut(*target)) {
             // Invulnerable or SoulShifting target
@@ -337,19 +355,28 @@ fn damage_hit(
                             // TODO: Boss Death Event
                         }
                         Ok(_) => {
-                            // TODO: send Player Death Event when the player die
-                            // atm all dying entity will trigger the soul shift/kill the player
                             // commands.entity(*target).insert(SoulShifting);
                             soul_shift_event.send(SoulShiftEvent(*target));
                         }
                     }
                 } else {
                     hp.current -= attack_damage.0;
-                    // TODO: Seperate player and boss gestion of getting hit
-                    // TODO: Invulnerable Hint
+                    // Seperate player and boss gestion of getting hit
+                    let invul_timer;
+                    // IDEA: Invulnerable Hint
+                    match player_query.get(*target) {
+                        // if not a player (normally is a boss)
+                        Err(_) => {
+                            invul_timer = 0.5;
+                        }
+                        Ok(_) => {
+                            invul_timer = 2.;
+                        }
+                    }
+
                     commands
                         .entity(*target)
-                        .insert(Invulnerable(Timer::from_seconds(2., TimerMode::Once)));
+                        .insert(Invulnerable(Timer::from_seconds(invul_timer, TimerMode::Once)));
                 }
             }
         }   
@@ -357,7 +384,7 @@ fn damage_hit(
 }
 
 /// Change the Animation to Hit when being hurted.
-/// TODO: Prevent hit anim while healing
+/// TODO: feature - Prevent hit anim while healing
 /// Carefull: Even if the Hp is rising this animation will trigger
 fn damage_animation(
     // DEBUG: Crowd getting hit (maybe the prb is here)
