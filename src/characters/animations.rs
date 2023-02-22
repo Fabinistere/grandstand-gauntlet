@@ -1,5 +1,6 @@
 use bevy::{prelude::*, utils::HashMap};
 use bevy_inspector_egui::Inspectable;
+use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{aggression::DeadBody, npcs::boss::Boss, player::Player},
@@ -38,29 +39,47 @@ pub fn animate_character(
     mut commands: Commands,
 
     time: Res<Time>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<
         (
             Entity,
             &AnimationIndices,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
+            &Handle<TextureAtlas>,
             &mut CharacterState,
+            // for moving Dead Bodies
+            &mut Velocity,
+            &Name,
         ),
         Or<(With<Player>, With<Boss>, With<CrowdMember>, With<DeadBody>)>,
     >,
 ) {
-    for (character, indices, mut timer, mut sprite, mut character_state) in &mut query {
+    for (
+        character,
+        indices,
+        mut timer,
+        mut sprite,
+        texture_atlas_handle,
+        mut character_state,
+        mut rb_vel,
+        name,
+    ) in &mut query
+    {
         timer.tick(time.delta());
 
         if timer.just_finished() {
             let (_first_frame, last_frame, next_phase) = &indices[&character_state];
 
             // TODO: longer animation of "getting hit"
-            // IDEA: Invulnerable Hint - hit anim prolongation or
+            // IDEA: Invulnerable Hint - see characters::aggrssion::invulnerability_timer
 
             // BUG: `index out of bounds: the len is 35 but the index is 35`
-            // ^^^^---- When someone is dying (not every time so wtf...)
+            // ^^^^---- When a DeadBody doesn't have the CharacterState::Dead
             // eprintln!("{:#?}", sprite);
+
+            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
+
             if sprite.index == *last_frame {
                 // Final Frame of Death
                 if *character_state == CharacterState::Dead {
@@ -71,8 +90,13 @@ pub fn animate_character(
                     // update state
                     *character_state = next_phase.clone();
                 }
-            } else {
+            } else if sprite.index + 1 < texture_atlas.textures.len() {
                 sprite.index = sprite.index + 1
+            } else {
+                warn!("anim limit reached: {}", name);
+                // *character_state = CharacterState::Dead;
+                commands.entity(character).remove::<AnimationTimer>();
+                rb_vel.linvel = Vect::ZERO;
             }
         }
     }

@@ -102,7 +102,7 @@ fn generate_crowd(
             ))
             .id();
 
-        for _ in 0..CROWD_SIZE {
+        for count in 0..CROWD_SIZE {
             let image = image_handle.clone();
             let mut image_dynamic = image.try_into_dynamic().unwrap();
             image_dynamic = image_dynamic.huerotate(rand.gen_range(0..360));
@@ -134,6 +134,8 @@ fn generate_crowd(
                         TimerMode::Repeating,
                     )),
                     animation_indices.clone(),
+                    // To match the animate_characters query (DEBUG update)
+                    Name::new(format!("Spectator n°{}", count)),
                 ));
             });
 

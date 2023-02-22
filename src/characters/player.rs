@@ -31,12 +31,12 @@ impl Plugin for PlayerPlugin {
             // -- Camera --
             .add_system(camera_follow.after("New Beginning"))
             // -- Aggression --
-            .add_system(player_attack)
             .add_system(display_player_hp)
             .add_system(player_death_event.label("Player Death").before("New Beginning"))
             .add_system(clean_up_dead_bodies.after("Player Death"))
+            .add_system(player_attack.after("Player Death"))
             // -- Movement --
-            .add_system(player_movement)
+            .add_system(player_movement.after("Player Death"))
             ;
     }
 }
@@ -77,7 +77,7 @@ fn player_attack(
             &mut Velocity,
             &mut AttackCharge,
         ),
-        With<Player>,
+        (With<Player>, Without<DeadBody>),
     >,
 ) {
     if let Ok((_player, mut state, mut rb_vel, mut attack_charge)) = player_query.get_single_mut() {
@@ -108,6 +108,9 @@ fn display_player_hp(
     }
 }
 
+/// # Note
+///
+/// REFACTOR: DeadBodies Handler - these events are kinda weak (atm we have to abuse the tricks around...)
 fn player_death_event(
     mut death_event: EventReader<PlayerDeathEvent>,
 
@@ -123,10 +126,11 @@ fn player_death_event(
             Err(e) => warn!("DEBUG: No player.... {:?}", e),
             Ok((player, mut rb_vel, mut state)) => {
                 *state = CharacterState::Dead;
-                rb_vel.linvel.x = 0.;
+                rb_vel.linvel = Vect::ZERO;
                 commands
                     .entity(player)
                     .insert((
+                        // already inserted in the soul_shift fn
                         DeadBody,
                         Name::new(format!("DeadBody n°{}", possesion_count.0)),
                         // AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Once)),
@@ -142,9 +146,13 @@ fn player_death_event(
 }
 
 /// Remove the hitbox/sensor from all new DeadBodies.
-fn clean_up_dead_bodies(mut commands: Commands, dead_body_query: Query<Entity, Added<DeadBody>>) {
-    for dead_body in dead_body_query.iter() {
+fn clean_up_dead_bodies(
+    mut commands: Commands,
+    mut dead_body_query: Query<(Entity, &mut Velocity), Added<DeadBody>>,
+) {
+    for (dead_body, mut rb_vel) in dead_body_query.iter_mut() {
         commands.entity(dead_body).despawn_descendants();
+        rb_vel.linvel = Vect::ZERO;
     }
 }
 
@@ -166,6 +174,7 @@ fn player_movement(
         ),
         (With<Player>, Without<CrowdMember>, Without<DeadBody>),
     >,
+    // TODO: time: Res<Time>,
     mut flip_direction_event: EventWriter<FlipAttackSensorEvent>,
 ) {
     if let Ok((player, speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
@@ -174,6 +183,8 @@ fn player_movement(
         // If player is attacking, don't allow them to move
         if *player_state == CharacterState::Attack
             || *player_state == CharacterState::SecondAttack
+            // || *player_state == CharacterState::TransitionToCharge
+            // || *player_state == CharacterState::Charge
             || *player_state == CharacterState::ChargedAttack
         {
             rb_vel.linvel = Vect::ZERO;
@@ -191,7 +202,7 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        rb_vel.linvel.x = x_axis as f32 * **speed;
+        rb_vel.linvel.x = x_axis as f32 * **speed; // * 20. * time.delta_second()
 
         // ---- Animation ----
 
