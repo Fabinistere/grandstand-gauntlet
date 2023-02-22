@@ -1,5 +1,11 @@
 # Grandstand Gauntlet
 
+Game's Links:
+
+- [Submission Brackeys 2023.1](https://fabinistere.itch.io/grandstand-gauntlet)
+- [Latest Build](https://fabinistere.github.io/grandstand-gauntlet)
+<!-- TODO: Changelog -->
+
 GameJam [Brackeys 2023.1](https://itch.io/jam/brackeys-9), for a week (12/02->19/02).
 The Theme is
 

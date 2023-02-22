@@ -1,5 +1,6 @@
 use bevy::{prelude::*, utils::HashMap};
 use bevy_inspector_egui::Inspectable;
+use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{aggression::DeadBody, npcs::boss::Boss, player::Player},
@@ -18,15 +19,18 @@ pub enum CharacterState {
     Run,
     Hit,
     Dead,
-    // OPTIMIZE: Stop animate
-    // PermaDeath,
 }
 
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(pub Timer);
 
+/// A CharacterState is linked to
+///
+/// - a start_index (first frame),
+/// - a end_index (last frame),
+/// - the next CharacterState (after the anim ended)
 #[derive(Component, Deref, DerefMut, Clone)]
-pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
+pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize, CharacterState)>);
 
 /// # Note
 ///
@@ -35,62 +39,62 @@ pub fn animate_character(
     mut commands: Commands,
 
     time: Res<Time>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<
         (
             Entity,
             &AnimationIndices,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
+            &Handle<TextureAtlas>,
             &mut CharacterState,
+            // for moving Dead Bodies
+            &mut Velocity,
+            &Name,
         ),
         Or<(With<Player>, With<Boss>, With<CrowdMember>, With<DeadBody>)>,
     >,
 ) {
-    for (character, indices, mut timer, mut sprite, mut character_state) in &mut query {
+    for (
+        character,
+        indices,
+        mut timer,
+        mut sprite,
+        texture_atlas_handle,
+        mut character_state,
+        mut rb_vel,
+        name,
+    ) in &mut query
+    {
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            let current_indices = indices[&character_state];
-            let next_phase: Option<CharacterState>;
+            let (_first_frame, last_frame, next_phase) = &indices[&character_state];
 
-            if *character_state == CharacterState::Run
-                || *character_state == CharacterState::Attack
-                || *character_state == CharacterState::SecondAttack
-                || *character_state == CharacterState::ChargedAttack
-                || *character_state == CharacterState::Hit
-            {
-                // TODO: longer animation of "getting hit"
-                // Idle when stop running/attacking/getting hit
-                next_phase = Some(CharacterState::Idle);
-            } else if *character_state == CharacterState::TransitionToCharge {
-                // Charging
-                next_phase = Some(CharacterState::Charge);
-            } else if *character_state == CharacterState::Dead {
-                // CharacterState::PermaDeath (last frame to last frame)
-                next_phase = Some(CharacterState::Dead);
-            } else {
-                // Loop
-                next_phase = None;
-            }
+            // TODO: longer animation of "getting hit"
+            // IDEA: Invulnerable Hint - see characters::aggrssion::invulnerability_timer
 
-            if sprite.index == current_indices.1 {
+            // eprintln!("{:#?}", sprite);
+
+            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
+
+            if sprite.index == *last_frame {
                 // Final Frame of Death
                 if *character_state == CharacterState::Dead {
                     commands.entity(character).remove::<AnimationTimer>();
                 } else {
-                    match next_phase {
-                        Some(new_state) => {
-                            sprite.index = indices[&new_state].0;
-                            // update state
-                            *character_state = new_state;
-                        }
-                        None => {
-                            sprite.index = current_indices.0;
-                        }
-                    }
+                    // starting on the start frame of the 'new' phase
+                    sprite.index = indices[next_phase].0;
+                    // update state
+                    *character_state = next_phase.clone();
                 }
-            } else {
+            } else if sprite.index + 1 < texture_atlas.textures.len() {
                 sprite.index = sprite.index + 1
+            } else {
+                warn!("anim limit reached: {}", name);
+                // *character_state = CharacterState::Dead;
+                commands.entity(character).remove::<AnimationTimer>();
+                rb_vel.linvel = Vect::ZERO;
             }
         }
     }
@@ -105,8 +109,8 @@ pub fn jump_frame_player_state(
     >,
 ) {
     for (indices, mut sprite, player_state) in &mut query {
-        let indices = indices[&player_state];
+        let (first_indice, _, _) = &indices[&player_state];
         // Jump directly to the correct frame when the state has changed
-        sprite.index = indices.0;
+        sprite.index = *first_indice;
     }
 }
