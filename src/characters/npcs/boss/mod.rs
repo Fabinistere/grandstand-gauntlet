@@ -14,7 +14,7 @@ use crate::{
 };
 
 use self::{
-    aggression::{BossSensor, BossAttackEvent, boss_attack_hitbox_activation, boss_close_detection, boss_attack_event_handler, display_boss_hp},
+    aggression::{BossSensor, boss_attack_hitbox_activation, boss_close_detection, display_boss_hp},
     movement::stare_player,
 };
 
@@ -28,9 +28,7 @@ impl Plugin for BossPlugin {
             .add_system(stare_player)
             .add_system(display_boss_hp)
             // -- Aggression --
-            .add_event::<BossAttackEvent>()
             .add_system(boss_close_detection)
-            .add_system(boss_attack_event_handler)
             .add_system(boss_attack_hitbox_activation.label("Boss Attack Hitbox Activation"))
             // .add_plugin(AggressionBossPlugin) 
             ;

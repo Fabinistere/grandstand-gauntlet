@@ -23,8 +23,13 @@ pub enum CharacterState {
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(pub Timer);
 
+/// A CharacterState is linked to
+///
+/// - a start_index (first frame),
+/// - a end_index (last frame),
+/// - the next CharacterState (after the anim ended)
 #[derive(Component, Deref, DerefMut, Clone)]
-pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
+pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize, CharacterState)>);
 
 /// # Note
 ///
@@ -48,53 +53,23 @@ pub fn animate_character(
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            let current_indices = indices[&character_state];
-            let next_phase: Option<CharacterState>;
+            let (_first_frame, last_frame, next_phase) = &indices[&character_state];
 
-            if *character_state == CharacterState::Run
-                || *character_state == CharacterState::Attack
-                || *character_state == CharacterState::SecondAttack
-                || *character_state == CharacterState::ChargedAttack
-            {
-                // Idle when stop running/attacking/getting hit
-                next_phase = Some(CharacterState::Idle);
-            } else if *character_state == CharacterState::TransitionToCharge {
-                // Charging
-                next_phase = Some(CharacterState::Charge);
-            } else if *character_state == CharacterState::Hit {
-                // TODO: longer animation of "getting hit"
-                // IDEA: Invulnerable Hint - hit anim prolongation or
-                // When getting hit:
-                // if Invulnerable then next = hit
-                // next_phase = Some(CharacterState::Hit);
-                // else next = Idle
-                next_phase = Some(CharacterState::Idle);
+            // TODO: longer animation of "getting hit"
+            // IDEA: Invulnerable Hint - hit anim prolongation or
 
-                // let a = sprite.color.a();
-                // sprite.color.set_a(a * 0.99);
-            } else if *character_state == CharacterState::Dead {
-                // CharacterState::PermaDeath (last frame to last frame)
-                next_phase = Some(CharacterState::Dead);
-            } else {
-                // Loop
-                next_phase = None;
-            }
-
-            if sprite.index == current_indices.1 {
+            // BUG: `index out of bounds: the len is 35 but the index is 35`
+            // ^^^^---- When someone is dying (not every time so wtf...)
+            // eprintln!("{:#?}", sprite);
+            if sprite.index == *last_frame {
                 // Final Frame of Death
                 if *character_state == CharacterState::Dead {
                     commands.entity(character).remove::<AnimationTimer>();
                 } else {
-                    match next_phase {
-                        Some(new_state) => {
-                            sprite.index = indices[&new_state].0;
-                            // update state
-                            *character_state = new_state;
-                        }
-                        None => {
-                            sprite.index = current_indices.0;
-                        }
-                    }
+                    // starting on the start frame of the 'new' phase
+                    sprite.index = indices[next_phase].0;
+                    // update state
+                    *character_state = next_phase.clone();
                 }
             } else {
                 sprite.index = sprite.index + 1
@@ -112,8 +87,8 @@ pub fn jump_frame_player_state(
     >,
 ) {
     for (indices, mut sprite, player_state) in &mut query {
-        let indices = indices[&player_state];
+        let (first_indice, _, _) = &indices[&player_state];
         // Jump directly to the correct frame when the state has changed
-        sprite.index = indices.0;
+        sprite.index = *first_indice;
     }
 }

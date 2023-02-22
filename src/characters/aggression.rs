@@ -131,8 +131,8 @@ fn flip_attack_sensor(
     // With<Sensor>, 
     mut attack_sensor_query: Query<&mut Transform, With<AttackSensor>>,
 ) {
-    for event in flip_direction_event.iter() {
-        match character_query.get(event.0) {
+    for FlipAttackSensorEvent(character_to_flip) in flip_direction_event.iter() {
+        match character_query.get(*character_to_flip) {
             Err(e) => warn!("can't flip the attack of this entity: {:?}", e),
             Ok(children) => {
                 for child in children.iter() {
@@ -157,15 +157,30 @@ fn invulnerability_timer(
     time: Res<Time>,
     
     // The Boss has their cooldown in their Attack Range Sensor
-    mut invulnerable_character: Query<(Entity, &mut Invulnerable)>,
+    mut invulnerable_character: Query<(Entity, &mut Invulnerable, &mut TextureAtlasSprite)>,
 ) {
-    for (character, mut invulnerability) in invulnerable_character.iter_mut() {
+    for (character, mut invulnerability, mut sprite) in invulnerable_character.iter_mut() {
+        // eprintln!("{:#?}",invulnerability);
         invulnerability.tick(time.delta());
 
+        // OPTIMIZE: The color change just need to change once per sec (not every frame)
+        const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
+        // change it to be custom (character depending)
+        // 246 215 215
+        const HIT_COLOR: Color = Color::rgb(0.96, 0.84, 0.84);
+        
         if invulnerability.just_finished() {
+            sprite.color = WHITE;
             commands
                 .entity(character)
                 .remove::<Invulnerable>();
+        } else {
+            // if the integer part of the timer left is odd
+            sprite.color = if (invulnerability.elapsed_secs() as i32).rem_euclid(2) == 1 {
+                HIT_COLOR
+            } else {
+                WHITE
+            };
         }
     }
 }
@@ -305,6 +320,8 @@ fn attack_collision(
 /// Send a ~~Death Event~~ Soul Shift Event if it's too much...
 /// 
 /// # Note
+/// 
+/// BUG: If the player is in the two attack hitbox delimitors (Smash) - the two will hurt them
 fn damage_hit(
     mut damage_hit_event: EventReader<DamageHitEvent>,
     

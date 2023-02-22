@@ -11,7 +11,7 @@ use crate::{
         animations::{AnimationIndices, AnimationTimer, CharacterState},
         movement::{CharacterHitbox, MovementBundle, Speed},
     },
-    constants::character::{player::*, CHAR_POSITION, FRAME_TIME},
+    constants::character::{player::*, FRAME_TIME},
     crowd::CrowdMember,
     soul_shift::{start_soul_shift, SoulShifting},
 };
@@ -53,7 +53,6 @@ pub struct PlayerHitbox;
 #[derive(Debug, Deref, DerefMut)]
 pub struct CreatePlayerEvent(pub Entity);
 
-// #[derive()]
 /// DOC
 /// Happens when
 ///   - soul_shift::start_soul_shift
@@ -68,7 +67,6 @@ pub struct PlayerDeathEvent(pub Entity);
 /// # Note
 ///
 /// TODO: Make the charge much more valuable than the spamming
-/// ^^^^^---- see characters::aggression::damage_hit Note
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
     buttons: Res<Input<MouseButton>>,
@@ -166,7 +164,7 @@ fn player_movement(
             &mut TextureAtlasSprite,
             &mut CharacterState,
         ),
-        (With<Player>, Without<CrowdMember>),
+        (With<Player>, Without<CrowdMember>, Without<DeadBody>),
     >,
     mut flip_direction_event: EventWriter<FlipAttackSensorEvent>,
 ) {
@@ -240,7 +238,7 @@ fn spawn_first_player(
             SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle,
                 sprite: texture_atlas_sprite,
-                transform: Transform::from_translation(CHAR_POSITION.into()),
+                transform: Transform::from_translation(PLAYER_POSITION.into()),
                 ..default()
             },
         ))
@@ -264,7 +262,7 @@ fn create_player(
         animation_indices.insert(CharacterState::Charge, PLAYER_CHARGE_FRAMES);
         animation_indices.insert(CharacterState::Attack, PLAYER_FIRST_ATTACK_FRAMES);
         animation_indices.insert(CharacterState::SecondAttack, PLAYER_SECOND_ATTACK_FRAMES);
-        animation_indices.insert(CharacterState::ChargedAttack, PLAYER_FULL_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::ChargedAttack, PLAYER_CHARGED_ATTACK_FRAMES);
         animation_indices.insert(CharacterState::Hit, PLAYER_HIT_FRAMES);
         animation_indices.insert(CharacterState::Dead, PLAYER_DEAD_FRAMES);
 

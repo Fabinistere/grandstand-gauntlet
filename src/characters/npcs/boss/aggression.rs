@@ -29,25 +29,6 @@ use super::{Boss, BossAttackFalleAngel, BossAttackSmash};
 //     }
 // }
 
-/// Happens when:
-///   - character::npcs::boss::boss_close_detection
-///     - The player hitbox/Sensor enters the BossSensor
-///   - character::npcs::boss::???
-///     - The player hitbox/Sensor is still in the BossSensor
-///     They must be punished by sanding their bones.
-///
-/// Read in
-///   - character::npcs::boss::aggression::boss_attack_event_handler
-///     - Launch an attack to the current facing direction
-///     (cause they always look at the player)
-///
-/// # Note
-///
-/// Add target_entity: only if the wanted direction is different from current
-pub struct BossAttackEvent {
-    attacker_entity: Entity,
-}
-
 #[derive(Component)]
 pub struct BossSensor;
 
@@ -81,12 +62,7 @@ pub fn display_boss_hp(
 /// # Note
 ///
 /// The boss should still attack while the player is invulnerable;
-///
-/// And we could just deactivate the player hitbox if Invulnerable by removing `ActiveEvents`
-///
-/// ^^^----- I don't know if that could just work: (if not) for more depts: [Collision groups and solver groups](https://rapier.rs/docs/user_guides/bevy_plugin/colliders/#collision-groups-and-solver-groups)
-///
-/// I does not work. ActiveEvents only allow sending events that the player can control.
+/// For more depts: [Collision groups and solver groups](https://rapier.rs/docs/user_guides/bevy_plugin/colliders/#collision-groups-and-solver-groups)
 pub fn boss_close_detection(
     mut commands: Commands,
 
@@ -99,7 +75,7 @@ pub fn boss_close_detection(
     >,
     player_sensor_query: Query<(Entity, &Parent), (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
-    mut boss_attack_event: EventWriter<BossAttackEvent>,
+    mut attacker_query: Query<&mut CharacterState>,
 ) {
     // Phase 1 - Sensor
     if let Ok((attack_sensor, boss)) = boss_attack_sensor_query.get_single() {
@@ -109,12 +85,17 @@ pub fn boss_close_detection(
                 // IDEA: MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
                 // ^^^^^------ With Dash/Death TP for example
 
-                boss_attack_event.send(BossAttackEvent {
-                    attacker_entity: **boss,
-                });
+                match attacker_query.get_mut(**boss) {
+                    // DEBUG: (in the start of the game) / Every time a entity spawns, log the name + current identifier
+                    Err(e) => warn!("This entity: {:?} Cannot animate: {:?}", **boss, e),
+                    Ok(mut state) => {
+                        *state = CharacterState::Attack;
+                    }
+                }
 
                 // Phase 2 - Timer
                 commands
+                    // REFACTOR: Where the cooldown timer is placed
                     .entity(attack_sensor) // **boss
                     .insert(AttackCooldown(Timer::from_seconds(
                         BOSS_SMASH_COOLDOWN,
@@ -123,26 +104,6 @@ pub fn boss_close_detection(
             }
         }
         // else { info!("No playerHitbox") }
-    }
-}
-
-pub fn boss_attack_event_handler(
-    mut boss_attack_event: EventReader<BossAttackEvent>,
-    // If needed to check the Player Invulnerability state:
-    // player_query: Query<Entity, (With<Player>, Without<Invulnerable>)>,
-    mut attacker_query: Query<&mut CharacterState>,
-) {
-    for BossAttackEvent { attacker_entity } in boss_attack_event.iter() {
-        match attacker_query.get_mut(*attacker_entity) {
-            // DEBUG: (in the start of the game) / Every time a entity spawns, log the name + current identifier
-            Err(e) => warn!(
-                "This entity: {:?} Cannot animate: {:?}",
-                *attacker_entity, e
-            ),
-            Ok(mut state) => {
-                *state = CharacterState::Attack;
-            }
-        }
     }
 }
 
@@ -174,37 +135,47 @@ pub fn boss_attack_hitbox_activation(
                         // vv-- to just see uncomment the two DEBUG info below --vv
 
                         // Just activate the good group of AttackHitbox (Smash or FallenAngel)
-                        match (
-                            smash_hitbox_query.get(*hitbox_child),
-                            fallen_angel_hitbox_query.get(*hitbox_child),
-                        ) {
-                            (Ok(smash), Err(_)) => {
-                                if *character_state == CharacterState::Attack {
-                                    // info!("DEBUG: Smash Active Inserted on {}", _name);
-                                    commands
-                                        .entity(smash)
-                                        .insert(ActiveEvents::COLLISION_EVENTS);
-                                } else {
-                                    // info!("DEBUG: Smash Active Removed on {}", _name);
-                                    commands.entity(smash).remove::<ActiveEvents>();
+                        if *character_state == CharacterState::Attack
+                            || *character_state == CharacterState::SecondAttack
+                        {
+                            match (
+                                smash_hitbox_query.get(*hitbox_child),
+                                fallen_angel_hitbox_query.get(*hitbox_child),
+                            ) {
+                                (Ok(smash), Err(_)) => {
+                                    if *character_state == CharacterState::Attack {
+                                        // info!("DEBUG: Smash Active Inserted on {}", _name);
+                                        commands
+                                            .entity(smash)
+                                            .insert(ActiveEvents::COLLISION_EVENTS);
+                                    } else {
+                                        // info!("DEBUG: Smash Active Removed on {}", _name);
+                                        commands.entity(smash).remove::<ActiveEvents>();
+                                    }
+                                }
+                                (Err(_), Ok(fallen_angel)) => {
+                                    if *character_state == CharacterState::SecondAttack {
+                                        // info!("DEBUG: Fallen Angel Active Inserted on {}", _name);
+                                        commands
+                                            .entity(fallen_angel)
+                                            .insert(ActiveEvents::COLLISION_EVENTS);
+                                    } else {
+                                        // info!("DEBUG: Fallen Angel Active Removed on {}", _name);
+                                        commands.entity(fallen_angel).remove::<ActiveEvents>();
+                                    }
+                                }
+                                (Err(_), Err(_)) => {
+                                    warn!("Non Indexed Attack (Smash or Fallen Angel)")
+                                }
+                                (Ok(_), Ok(_)) => {
+                                    warn!("Attack indexed twice (Smash and Fallen Angel)")
                                 }
                             }
-                            (Err(_), Ok(fallen_angel)) => {
-                                if *character_state == CharacterState::SecondAttack {
-                                    // info!("DEBUG: Fallen Angel Active Inserted on {}", _name);
-                                    commands
-                                        .entity(fallen_angel)
-                                        .insert(ActiveEvents::COLLISION_EVENTS);
-                                } else {
-                                    // info!("DEBUG: Fallen Angel Active Removed on {}", _name);
-                                    commands.entity(fallen_angel).remove::<ActiveEvents>();
-                                }
-                            }
-                            (Err(_), Err(_)) => warn!("Non Indexed Attack (Smash or Fallen Angel)"),
-                            (Ok(_), Ok(_)) => {
-                                warn!("Attack indexed twice (Smash and Fallen Angel)")
-                            }
+                        } else {
+                            // info!("DEBUG: Any Active Removed on {}", _name);
+                            commands.entity(*hitbox_child).remove::<ActiveEvents>();
                         }
+
                         // match attack_hitbox_query.get(*child)
                     }
                 }
