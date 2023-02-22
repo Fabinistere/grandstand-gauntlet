@@ -15,7 +15,7 @@ use crate::{
 
 use self::{
     aggression::{BossSensor, boss_attack_hitbox_activation, boss_close_detection, display_boss_hp},
-    movement::stare_player,
+    movement::{stare_player, move_towards_player, close_range_detection},
 };
 
 pub struct BossPlugin;
@@ -25,7 +25,11 @@ impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
         app 
             .add_startup_system(setup_boss)
+            // -- Movement --
+            .add_system(close_range_detection)
+            .add_system(move_towards_player)
             .add_system(stare_player)
+            // -- UI --
             .add_system(display_boss_hp)
             // -- Aggression --
             .add_system(boss_close_detection)
@@ -38,6 +42,8 @@ impl Plugin for BossPlugin {
 #[derive(Component)]
 pub struct Boss;
 
+// -- Attack Hitbox --
+
 #[derive(Component)]
 pub struct BossAttack;
 
@@ -46,6 +52,23 @@ pub struct BossAttackSmash;
 
 #[derive(Component)]
 pub struct BossAttackFalleAngel;
+
+// -- Behaviors Sensor -- 
+
+#[derive(Component)]
+pub struct BossMovementSensor;
+
+// -- Boss Behaviors --
+
+#[derive(Component)]
+pub struct ChaseBehavior;
+
+#[derive(Component)]
+pub struct DashInAttackBehavior;
+
+/// Activated after x successed paries
+#[derive(Component)]
+pub struct CounterParyBehavior;
 
 fn setup_boss(
     mut commands: Commands,
@@ -92,6 +115,7 @@ fn setup_boss(
                 BOSS_SMASH_COOLDOWN,
                 TimerMode::Once,
             )),
+            ChaseBehavior,
             // -- Hitbox --
             RigidBody::Dynamic,
             LockedAxes::ROTATION_LOCKED,
@@ -114,6 +138,16 @@ fn setup_boss(
                 Name::new("Boss Hitbox"),
             ));
 
+            // Boss Movement Range Sensor
+            parent.spawn((
+                Collider::ball(80.),
+                Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
+                BossMovementSensor,
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                Name::new("Boss Movement Range"),
+            ));
+
             // Boss Attack Range Sensor
             parent.spawn((
                 Collider::ball(BOSS_RANGE_HITBOX_SIZE),
@@ -123,6 +157,7 @@ fn setup_boss(
                 ActiveEvents::COLLISION_EVENTS,
                 Name::new("Boss Attack Range"),
             ));
+            
 
             // -- Attack Hitbox --
             // Smash
