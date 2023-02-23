@@ -26,7 +26,6 @@ impl Plugin for BossPlugin {
         app 
             .add_startup_system(setup_boss)
             // -- Movement --
-            // .add_system(close_range_detection)
             .add_system(chase_player)
             .add_system(stare_player)
             // -- UI --
