@@ -194,9 +194,9 @@ fn invulnerability_timer(
 
         // OPTIMIZE: The color change just need to change once per sec (not every frame)
         const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
-        // change it to be custom (character depending)
+        // TODO: feature - change it to be custom (character depending)
         // 246 215 215
-        const HIT_COLOR: Color = Color::rgb(0.96, 0.84, 0.84);
+        const HIT_COLOR: Color = Color::rgb(0.96, 0.54, 0.54);
         
         if invulnerability.just_finished() {
             sprite.color = WHITE;
