@@ -20,7 +20,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: asset_server.load("fonts/dpcomic.ttf"),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    color: Color::GRAY,
                 },
             )
             .with_style(Style {
@@ -43,7 +43,10 @@ fn update_health(
     for hp in hp_query.iter() {
         let mut text = text_query.single_mut();
         text.sections[0] = TextSection::new(
-            format!("Health: {}%", hp.current / hp.max),
+            format!(
+                "Health: {}%",
+                ((hp.current as f32) / (hp.max as f32)) * 100.
+            ),
             text.sections[0].style.clone(),
         );
     }

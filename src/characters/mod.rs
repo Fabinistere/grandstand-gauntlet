@@ -6,10 +6,16 @@ pub mod player;
 
 use bevy::prelude::*;
 
-use self::{
-    aggression::AggressionPlugin, animations::animate_character,
-    animations::jump_frame_player_state, player::PlayerPlugin, npcs::NPCsPlugin,
+use crate::{
+    characters::{
+        aggression::AggressionPlugin, animations::animate_character,
+        animations::jump_frame_character_state,
+        npcs::NPCsPlugin,
+        player::PlayerPlugin,
+    },
+    locations::run_if_the_player_is_not_frozen,
 };
+
 
 pub struct CharacterPlugin;
 
@@ -17,13 +23,29 @@ impl Plugin for CharacterPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
         app 
+            // REFACTOR: Remove filters in favour of a `System Order of Execution`
+            // ^^^^^^^^^------- filters used to weirdly correct bugs (whihc cause new bugs...)
             .add_plugin(NPCsPlugin)
             .add_plugin(PlayerPlugin)
             .add_plugin(AggressionPlugin)
             // -- Animation --
-            .add_system(animate_character)
-            .add_system(jump_frame_player_state)
-            .add_system(move_dead_bodies)
+            .add_system_set(
+                SystemSet::new()
+                    .with_run_criteria(run_if_the_player_is_not_frozen)
+                    .with_system(move_dead_bodies)
+            )
+            // CoreStage::Last (after player_death_event and player_attack player_movement) but should be fine
+            .add_system_to_stage(
+                // ensure that the changes in each CharacterPhase are made
+                CoreStage::PostUpdate,
+                jump_frame_character_state
+                    .before(animate_character)
+                    
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                animate_character
+            )
             ;
     }
 }
@@ -34,6 +56,10 @@ pub struct Invulnerable;
 #[derive(Component)]
 pub struct DeadBody;
 
+#[derive(Component)]
+pub struct Freeze;
+
+/// REFACTOR: Parallax movement on static entities
 fn move_dead_bodies(
     mut query: Query<&mut Transform, With<DeadBody>>,
     keyboard_input: Res<Input<KeyCode>>,
@@ -46,7 +72,7 @@ fn move_dead_bodies(
             || keyboard_input.pressed(KeyCode::Left);
 
         let dir = right as i8 - left as i8;
-        const SPEED: f32 = 25.0;
+        const SPEED: f32 = 5.;
 
         transform.translation.x += -dir as f32 * SPEED * time.delta_seconds();
     }
