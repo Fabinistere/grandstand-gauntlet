@@ -10,33 +10,45 @@ use crate::{
         },
         animations::{AnimationIndices, AnimationTimer, CharacterState},
         movement::{CharacterHitbox, MovementBundle, Speed},
+        Freeze,
     },
     constants::character::{player::*, FRAME_TIME},
     crowd::CrowdMember,
-    soul_shift::{start_soul_shift, SoulShifting},
+    soul_shift::SoulShifting,
+    MySystems,
 };
-
-use super::Freeze;
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app .add_event::<CreatePlayerEvent>()
+        app.add_event::<CreatePlayerEvent>()
             .add_event::<PlayerDeathEvent>()
             .insert_resource(PossesionCount(1))
             .add_startup_system(spawn_first_player)
-            .add_system(create_player.label("New Beginning").after(start_soul_shift))
+            .add_system(
+                create_player
+                    .label(MySystems::NewBeginning)
+                    .after(MySystems::SoulShift)
+            )
             // -- Camera --
-            .add_system(camera_follow.after("New Beginning"))
+            .add_system(camera_follow.after(MySystems::NewBeginning))
             // -- Aggression --
             .add_system(display_player_hp)
-            .add_system(player_death_event.label("Player Death").before("New Beginning"))
-            .add_system(clean_up_dead_bodies.after("Player Death"))
-            .add_system(player_attack.after("Player Death"))
+            .add_system(
+                player_death_event
+                    .label(MySystems::PlayerDeath)
+                    .before(MySystems::NewBeginning)
+                    // prioritize the Death anim in front of the Hit anim
+                    .after(MySystems::DamageAnimation)
+                    .after(MySystems::SoulShift),
+                )
+            .add_system(clean_up_dead_bodies.after(MySystems::PlayerDeath))
+            // Post Update needed cause depends on the DeadBody Filter which is added during the Update State
+            .add_system_to_stage(CoreStage::PostUpdate, player_attack)
             // -- Movement --
-            .add_system(player_movement.after("Player Death"))
+            .add_system_to_stage(CoreStage::PostUpdate, player_movement)
             ;
     }
 }
@@ -66,7 +78,10 @@ pub struct PlayerDeathEvent(pub Entity);
 
 /// # Note
 ///
-/// TODO: Make the charge much more valuable than the spamming
+/// TODO: Make the charge much more valuable than the spamming (bonus attack)
+/// IDEA: Cancel a attack (feint if the boss can pary)
+/// TODO: Forbid to attaack while the player is in anim (attacking), cancel/replace Attacks
+/// ^^^^---- By checking the state is in it
 fn player_attack(
     keyboard_input: Res<Input<KeyCode>>,
     buttons: Res<Input<MouseButton>>,
@@ -81,6 +96,13 @@ fn player_attack(
     >,
 ) {
     if let Ok((_player, mut state, mut rb_vel, mut attack_charge)) = player_query.get_single_mut() {
+        if *state == CharacterState::Attack
+            || *state == CharacterState::SecondAttack
+            || *state == CharacterState::ChargedAttack
+        // || *state == CharacterState::Dead
+        {
+            return;
+        }
         if keyboard_input.just_pressed(KeyCode::Return) || buttons.just_pressed(MouseButton::Left) {
             attack_charge.charging = true;
             attack_charge.timer.reset();
@@ -121,10 +143,10 @@ fn player_death_event(
 ) {
     for player_death in death_event.iter() {
         // info!("DEATH EVENNNT !!");
-        // Death Anim
         match player_query.get_mut(player_death.0) {
             Err(e) => warn!("DEBUG: No player.... {:?}", e),
             Ok((player, mut rb_vel, mut state)) => {
+                // Death Anim
                 *state = CharacterState::Dead;
                 rb_vel.linvel = Vect::ZERO;
                 commands
@@ -158,6 +180,21 @@ fn clean_up_dead_bodies(
 
 /// # Note
 ///
+/// From [Bevy-cheatbook](https://bevy-cheatbook.github.io/programming/stages.html):
+///
+/// ```text
+/// If you have systems that need to rely on the actions that other systems have performed by using Commands,
+/// and need to do so during the same frame,
+/// placing those systems into separate stages is the only way to accomplish that.
+/// ```
+///
+/// This system runs after player_death_event but depending of the player's component,
+/// DeadBody.
+/// The commands are perform at the end of a Stage.
+/// These two systems being in the same stage, mess this order.
+///
+/// SOLUTION: Place the player_movement / player_attack in a stage after player_death_event (Commands execution)
+///
 /// TODO: Movement should be links to the DeltaTime
 /// TODO: Dying while running skip the death animation and the velocity reset
 fn player_movement(
@@ -186,6 +223,8 @@ fn player_movement(
             // || *player_state == CharacterState::TransitionToCharge
             // || *player_state == CharacterState::Charge
             || *player_state == CharacterState::ChargedAttack
+        // Order Execution of System (and stage) is taken care of the case a DeadBody wants to move/attack
+        // || *player_state == CharacterState::Dead
         {
             rb_vel.linvel = Vect::ZERO;
             commands.entity(player).insert(Freeze);
@@ -202,7 +241,7 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        rb_vel.linvel.x = x_axis as f32 * **speed; // * 20. * time.delta_second()
+        rb_vel.linvel.x = x_axis as f32 * **speed; // * 200. * time.delta_second()
 
         // ---- Animation ----
 
@@ -300,7 +339,7 @@ fn create_player(
                 CharacterState::default(),
                 // -- Combat --
                 // Hp::default(),
-                Hp::new(20),
+                Hp::new(PLAYER_HP),
                 Invulnerable(Timer::from_seconds(10., TimerMode::Once)),
                 // -- Hitbox --
                 RigidBody::Dynamic,

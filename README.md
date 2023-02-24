@@ -157,7 +157,7 @@ If Time exists in our dimension:
   - [ ] "Try to pary that!"
   after a certain number (10?) of pary
     - TP behind/infront of the player
-    - feint 2 to 5 times before stricking
+    - feint 2 to 5 times before striking
     (Have to create hint or pattern (for ex: the anim being 50%+ done it's a real attack))
   - [ ] "Back Off"
   If too close

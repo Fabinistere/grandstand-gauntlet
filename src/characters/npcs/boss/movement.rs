@@ -6,32 +6,53 @@ use crate::{
         aggression::FlipAttackSensorEvent,
         animations::CharacterState,
         movement::Speed,
-        player::{Player, PlayerHitbox},
+        npcs::boss::{Boss, BossBehavior},
+        player::Player,
+        Freeze,
     },
-    collisions::CollisionEventExt,
     crowd::CrowdMember,
 };
 
-use super::{Boss, BossMovementSensor, ChaseBehavior};
-
 pub fn stare_player(
-    mut boss_query: Query<(Entity, &mut TextureAtlasSprite, &Transform), With<Boss>>,
+    mut boss_query: Query<
+        (Entity, &mut TextureAtlasSprite, &Transform, &CharacterState),
+        With<Boss>,
+    >,
     player_query: Query<&Transform, (With<Player>, Without<CrowdMember>)>,
     mut flip_direction_event: EventWriter<FlipAttackSensorEvent>,
 ) {
-    let (boss, mut boss_sprite, boss_transform) = boss_query.single_mut();
+    let (boss, mut boss_sprite, boss_transform, boss_state) = boss_query.single_mut();
     let player_transform = player_query.single();
 
-    if boss_sprite.flip_x != (boss_transform.translation.x > player_transform.translation.x) {
+    // MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
+    // ^^^^^------ With Dash/Death TP for example
+
+    // If boss is attacking, don't allow them to flip
+    if *boss_state == CharacterState::TransitionToCharge
+        || *boss_state == CharacterState::Attack
+        // || *boss_state == CharacterState::Charge
+        || *boss_state == CharacterState::SecondAttack
+        || *boss_state == CharacterState::ChargedAttack
+    {
+        return;
+    }
+
+    let current_flip = boss_transform.translation.x > player_transform.translation.x;
+
+    // Flip their sensors
+    if boss_sprite.flip_x != current_flip {
         flip_direction_event.send(FlipAttackSensorEvent(boss));
     }
-    boss_sprite.flip_x = boss_transform.translation.x > player_transform.translation.x;
+    // Flip their sprite
+    boss_sprite.flip_x = current_flip;
 }
 
 /// # Note
 ///
 /// TODO: An attack/stroke must be prioritized before the anim run/idle.
 pub fn chase_player(
+    mut commands: Commands,
+
     mut boss_query: Query<
         (
             Entity,
@@ -39,15 +60,33 @@ pub fn chase_player(
             &Transform,
             &Speed,
             &mut Velocity,
+            &BossBehavior,
         ),
-        (With<Boss>, With<ChaseBehavior>),
+        With<Boss>,
     >,
     player_query: Query<&Transform, (With<Player>, Without<CrowdMember>)>,
     time: Res<Time>,
 ) {
-    if let Ok((_boss, mut boss_state, boss_transform, speed, mut boss_vel)) =
+    if let Ok((boss, mut boss_state, boss_transform, speed, mut boss_vel, behavior)) =
         boss_query.get_single_mut()
     {
+        // REFACTOR / OPTIMIZE: A component for this particular Chase Behavior
+        if *behavior != BossBehavior::Chase {
+            return;
+        }
+        // If boss is attacking, don't allow them to move
+        if *boss_state == CharacterState::TransitionToCharge
+            || *boss_state == CharacterState::Attack
+            // || *boss_state == CharacterState::Charge
+            || *boss_state == CharacterState::SecondAttack
+            || *boss_state == CharacterState::ChargedAttack
+        {
+            boss_vel.linvel = Vect::ZERO;
+            commands.entity(boss).insert(Freeze);
+            return;
+        }
+        commands.entity(boss).remove::<Freeze>();
+
         let player_transform = player_query.single();
 
         let direction = player_transform.translation;
@@ -55,7 +94,7 @@ pub fn chase_player(
         let left = direction.x < boss_transform.translation.x;
         let right = direction.x > boss_transform.translation.x;
 
-        let close_range_width = boss_transform.scale.x * 10.;
+        let close_range_width = boss_transform.scale.x * 40.;
 
         // The boss is in range with the player
         if direction.x - close_range_width < boss_transform.translation.x
@@ -78,77 +117,6 @@ pub fn chase_player(
             *boss_state = CharacterState::Run;
         } else if !(left || right) && *boss_state == CharacterState::Run {
             *boss_state = CharacterState::Idle;
-        }
-    }
-}
-
-/// DOC: Naming with boss_close_detection or merge
-///
-/// For movement this one
-pub fn close_range_detection(
-    mut collision_events: EventReader<CollisionEvent>,
-
-    mut commands: Commands,
-    rapier_context: Res<RapierContext>,
-
-    boss_personal_space_query: Query<(Entity, &Parent), (With<Sensor>, With<BossMovementSensor>)>,
-    player_hitbox_query: Query<(Entity, &Parent), With<PlayerHitbox>>,
-
-    mut boss_query: Query<
-        (
-            Entity,
-            // modify speed to drift
-            &Speed,
-            // TODO: negate this when entering
-            &mut Velocity,
-        ),
-        With<Boss>,
-    >,
-    player_query: Query<&Transform, (With<Player>, Without<CrowdMember>)>,
-) {
-    for collision_event in collision_events.iter() {
-        let entity_1 = collision_event.entities().0;
-        let entity_2 = collision_event.entities().1;
-
-        // check if the sensor is a DetectionSensor
-        match (
-            boss_personal_space_query.get(entity_1),
-            boss_personal_space_query.get(entity_2),
-            player_hitbox_query.get(entity_1),
-            player_hitbox_query.get(entity_2),
-        ) {
-            // only one of them contains DetectionSensor: detection_sensor
-            // and the other one is a player_hitbox
-            (
-                Ok((_detection_sensor, b_parent)),
-                Err(_e1),
-                Err(_e2),
-                Ok((_player_hitbox, p_parent)),
-            )
-            | (
-                Err(_e1),
-                Ok((_detection_sensor, b_parent)),
-                Ok((_player_hitbox, p_parent)),
-                Err(_e2),
-            ) => {
-                // DEBUG: info!(target: "Collision with a sensor and a player hitbox", "{:?} and {:?}", _detection_sensor, _player_hitbox);
-
-                match (boss_query.get_mut(**b_parent), player_query.get(**p_parent)) {
-                    (Ok((boss, _boss_speed, mut boss_vel)), Ok(_player_location)) => {
-                        // just entered the personal space
-                        if rapier_context.intersection_pair(entity_1, entity_2) == Some(true) {
-                            // info!("DEBUG: Personal Space entered");
-                            commands.entity(boss).remove::<ChaseBehavior>();
-                            boss_vel.linvel = Vect::ZERO;
-                        } else {
-                            // info!("DEBUG: Personal Space exited");
-                            commands.entity(boss).insert(ChaseBehavior);
-                        }
-                    }
-                    _ => continue,
-                }
-            }
-            _ => continue,
         }
     }
 }

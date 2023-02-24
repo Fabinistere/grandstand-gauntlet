@@ -1,7 +1,8 @@
-mod aggression;
+pub mod aggression;
 mod movement;
 
 use bevy::{prelude::*, utils::HashMap};
+use bevy_inspector_egui::Inspectable;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
@@ -9,14 +10,17 @@ use crate::{
         animations::{AnimationIndices, AnimationTimer, CharacterState},
         aggression::{Hp, AttackSensor, AttackHitbox, AttackCooldown},
         movement::{MovementBundle, Speed, CharacterHitbox},
+        npcs::boss::{
+            aggression::{
+                BossSensor, boss_attack_hitbox_activation, boss_close_detection, display_boss_hp
+            },
+            movement::{stare_player, chase_player}
+        }
     },
-    constants::character::{CHAR_POSITION, boss::*, FRAME_TIME},
+    constants::character::{CHAR_POSITION, boss::*, FRAME_TIME}, MySystems,
 };
 
-use self::{
-    aggression::{BossSensor, boss_attack_hitbox_activation, boss_close_detection, display_boss_hp},
-    movement::{stare_player, chase_player},
-};
+use self::aggression::{boss_death, BossDeathEvent};
 
 pub struct BossPlugin;
 
@@ -24,16 +28,21 @@ impl Plugin for BossPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
         app 
+            .add_event::<BossDeathEvent>()
             .add_startup_system(setup_boss)
             // -- Movement --
-            // .add_system(close_range_detection)
             .add_system(chase_player)
             .add_system(stare_player)
             // -- UI --
             .add_system(display_boss_hp)
             // -- Aggression --
             .add_system(boss_close_detection)
-            .add_system(boss_attack_hitbox_activation.label("Boss Attack Hitbox Activation").after(boss_close_detection))
+            .add_system(
+                boss_attack_hitbox_activation
+                .label(MySystems::BossAttackHitboxActivation)
+                .after(boss_close_detection)
+            )
+            .add_system(boss_death)
             // .add_plugin(AggressionBossPlugin) 
             ;
     }
@@ -60,15 +69,31 @@ pub struct BossMovementSensor;
 
 // -- Boss Behaviors --
 
-#[derive(Component)]
-pub struct ChaseBehavior;
+#[derive(Default, Debug, Clone, Component, Eq, Inspectable, PartialEq)]
+pub enum BossBehavior {
+    #[default]
+    Chase, 
+    /// # Trigger
+    /// 
+    /// The player runs away, after leaving the proximity sensor
+    /// (negative movement velocity % Boss)
+    DashInAttack,
+    /// Tp in front/behind alternately, each tp is followed by a fake Smash (just the transition)
+    /// 
+    /// # Trigger
+    /// 
+    /// x successed paries
+    CounterPary,
+    /// Dash out, Dash in, Smash Attack
+    /// 
+    /// # Trigger
+    /// 
+    /// Player being too close to the boss
+    NeedSomeSpace,
+}
 
-#[derive(Component)]
-pub struct DashInAttackBehavior;
-
-/// Activated after x successed paries
-#[derive(Component)]
-pub struct CounterParyBehavior;
+// #[derive(Component)]
+// pub struct ChaseBehavior;
 
 fn setup_boss(
     mut commands: Commands,
@@ -78,9 +103,9 @@ fn setup_boss(
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, BOSS_IDLE_FRAMES);
     animation_indices.insert(CharacterState::Run, BOSS_RUN_FRAMES);
-    // animation_indices.insert(CharacterState::TransitionToCharge, BOSS_TRANSITION_TO_CHARGE_FRAMES); //(11, 14)
-    // Charge to Backhand
-    animation_indices.insert(CharacterState::Charge, BOSS_CHARGE_FRAMES);
+    // Transition Blank to Smash (Backhand)
+    animation_indices.insert(CharacterState::TransitionToCharge, BOSS_TRANSITION_TO_SMASH_FRAMES);
+    // animation_indices.insert(CharacterState::Charge, BOSS_CHARGE_FRAMES);
     // Backhand
     animation_indices.insert(CharacterState::Attack, BOSS_SMASH_FRAMES);
     // Powerfull Attack: Fallen angel
@@ -115,10 +140,10 @@ fn setup_boss(
                 BOSS_SMASH_COOLDOWN,
                 TimerMode::Once,
             )),
-            ChaseBehavior,
+            BossBehavior::Chase,
             // -- Movement --
             MovementBundle {
-                speed: Speed::default(),
+                speed: Speed::new(BOSS_SPEED),
                 velocity: Velocity {
                     linvel: Vect::ZERO,
                     angvel: 0.,
@@ -148,12 +173,14 @@ fn setup_boss(
                 Name::new("Boss Movement Range"),
             ));
 
-            // Boss Attack Range Sensor
+            // Boss Attack Range Sensor: Proximity sensor
             parent.spawn((
+                // TODO: Bigger ?
                 Collider::ball(BOSS_RANGE_HITBOX_SIZE),
                 Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
                 BossSensor,
                 Sensor,
+                // TODO: removable Component ? (ActiveEvents is used by user's event handler)
                 ActiveEvents::COLLISION_EVENTS,
                 Name::new("Boss Attack Range"),
             ));
