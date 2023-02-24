@@ -43,7 +43,7 @@ fn update_health(
     for hp in hp_query.iter() {
         let mut text = text_query.single_mut();
         text.sections[0] = TextSection::new(
-            format!("Health: {}%", hp.current / hp.max),
+            format!("Health: {}%", (hp.current / hp.max) * 100),
             text.sections[0].style.clone(),
         );
     }
