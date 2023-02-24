@@ -1,13 +1,18 @@
 use bevy::{prelude::*, utils::HashMap};
+use bevy_inspector_egui::Inspectable;
 
-use super::{npcs::boss::Boss, player::Player};
-use crate::crowd::CrowdMember;
+use crate::{
+    characters::{aggression::DeadBody, npcs::boss::Boss, player::Player},
+    crowd::CrowdMember,
+};
 
-#[derive(Component, PartialEq, Eq, Hash, Clone)]
+#[derive(Default, Debug, Clone, Component, Eq, Hash, Inspectable, PartialEq)]
 pub enum CharacterState {
+    #[default]
     Idle,
     Attack,
     SecondAttack,
+    ChargedAttack,
     TransitionToCharge,
     Charge,
     Run,
@@ -18,57 +23,73 @@ pub enum CharacterState {
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(pub Timer);
 
+/// A CharacterState is linked to
+///
+/// - a start_index (first frame),
+/// - a end_index (last frame),
+/// - the next CharacterState (after the anim ended)
 #[derive(Component, Deref, DerefMut, Clone)]
-pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize)>);
+pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize, CharacterState)>);
 
 /// # Note
 ///
-/// REFACTOR: Crappy solution right there
+/// TODO: longer animation of "getting hit"
 pub fn animate_character(
+    mut commands: Commands,
+
     time: Res<Time>,
+    texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<
         (
+            Entity,
             &AnimationIndices,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
+            &Handle<TextureAtlas>,
             &mut CharacterState,
+            &Name,
         ),
-        Or<(With<Player>, With<Boss>, With<CrowdMember>)>,
+        Or<(With<Player>, With<Boss>, With<CrowdMember>, With<DeadBody>)>,
     >,
 ) {
-    for (indices, mut timer, mut sprite, mut character_state) in &mut query {
+    for (
+        character,
+        indices,
+        mut timer,
+        mut sprite,
+        texture_atlas_handle,
+        mut character_state,
+        name,
+    ) in &mut query
+    {
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            let current_indices = indices[&character_state];
-            let next_phase: Option<CharacterState>;
+            let (_first_frame, last_frame, next_phase) = &indices[&character_state];
 
-            if *character_state == CharacterState::Run
-                || *character_state == CharacterState::Attack
-                || *character_state == CharacterState::SecondAttack
-            {
-                // Idle when stop running/attacking
-                next_phase = Some(CharacterState::Idle);
-            } else {
-                // Loop
-                next_phase = None;
-                // start_back = current_indices.0;
-                // limit = current_indices.1;
-            }
+            // TODO: longer animation of "getting hit"
+            // IDEA: Invulnerable Hint - see characters::aggrssion::invulnerability_timer
 
-            if sprite.index == current_indices.1 {
-                match next_phase {
-                    Some(new_state) => {
-                        sprite.index = indices[&new_state].0;
-                        // update state
-                        *character_state = new_state;
-                    }
-                    None => {
-                        sprite.index = current_indices.0;
-                    }
+            // eprintln!("{:#?}", sprite);
+
+            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
+
+            if sprite.index == *last_frame {
+                // Final Frame of Death
+                if *character_state == CharacterState::Dead {
+                    commands.entity(character).remove::<AnimationTimer>();
+                } else {
+                    // starting on the start frame of the 'new' phase
+                    sprite.index = indices[next_phase].0;
+                    // update state
+                    *character_state = next_phase.clone();
                 }
-            } else {
+            } else if sprite.index + 1 < texture_atlas.textures.len() {
                 sprite.index = sprite.index + 1
+            } else {
+                warn!("anim limit reached: {}", name);
+                // *character_state = CharacterState::Dead;
+                commands.entity(character).remove::<AnimationTimer>();
             }
         }
     }
@@ -76,15 +97,15 @@ pub fn animate_character(
 
 /// Anytime the CharacterState change,
 /// force the sprite to match this change.
-pub fn jump_frame_player_state(
+pub fn jump_frame_character_state(
     mut query: Query<
         (&AnimationIndices, &mut TextureAtlasSprite, &CharacterState),
-        (Or<(With<Player>, With<Boss>)>, Changed<CharacterState>),
+        Changed<CharacterState>,
     >,
 ) {
-    for (indices, mut sprite, player_state) in &mut query {
-        let indices = indices[&player_state];
-        // Jump directly to the correct frame
-        sprite.index = indices.0;
+    for (indices, mut sprite, character_state) in &mut query {
+        let (first_indice, _, _) = &indices[&character_state];
+        // Jump directly to the correct frame when the state has changed
+        sprite.index = *first_indice;
     }
 }

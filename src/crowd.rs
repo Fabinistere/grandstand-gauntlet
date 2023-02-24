@@ -1,9 +1,10 @@
 use crate::{
     characters::animations::{AnimationIndices, AnimationTimer, CharacterState},
     constants::{
-        character::CROWD_CHARACTER_Z,
-        crowd::{CROWD_SIZE, CROWD_SPAN},
+        character::player::*,
+        crowd::{CROWD_SIZE, CROWD_SPAN, CROWD_Y, CROWD_Z},
     },
+    locations::run_if_the_player_is_not_frozen,
 };
 use bevy::{ecs::schedule::ShouldRun, prelude::*, utils::HashMap};
 use rand::Rng;
@@ -14,7 +15,11 @@ impl Plugin for CrowdPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(generate_crowd.with_run_criteria(texture_not_loaded))
-            .add_system(move_crowd_with_background)
+            .add_system_set(
+                SystemSet::new()
+                    .with_run_criteria(run_if_the_player_is_not_frozen)
+                    .with_system(move_crowd_with_background),
+            )
             .insert_resource(CharacterSpriteSheetLoaded(false));
     }
 }
@@ -37,7 +42,7 @@ fn texture_not_loaded(character_spritehseet_loaded: Res<CharacterSpriteSheetLoad
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load("textures/character/character_spritesheet.png");
+    let image = asset_server.load("textures/character/character_spritesheet_v2.png");
     commands.insert_resource(CharacterSpritesheetImage(image));
 }
 
@@ -68,14 +73,17 @@ fn generate_crowd(
 ) {
     if let Some(image_handle) = assets.get(&**character_spritesheet_image) {
         let mut animation_indices = AnimationIndices(HashMap::new());
-        animation_indices.insert(CharacterState::Idle, (0, 4));
-        animation_indices.insert(CharacterState::Attack, (19, 23));
-        animation_indices.insert(CharacterState::SecondAttack, (24, 26));
-        animation_indices.insert(CharacterState::TransitionToCharge, (13, 14));
-        animation_indices.insert(CharacterState::Charge, (15, 18));
-        animation_indices.insert(CharacterState::Run, (5, 12));
-        animation_indices.insert(CharacterState::Hit, (27, 28));
-        animation_indices.insert(CharacterState::Dead, (29, 33));
+        animation_indices.insert(CharacterState::Idle, PLAYER_IDLE_FRAMES);
+        animation_indices.insert(CharacterState::Run, PLAYER_RUN_FRAMES);
+        animation_indices.insert(
+            CharacterState::TransitionToCharge,
+            PLAYER_TRANSITION_TO_CHARGE_FRAMES,
+        );
+        animation_indices.insert(CharacterState::Charge, PLAYER_CHARGE_FRAMES);
+        animation_indices.insert(CharacterState::Attack, PLAYER_CHARGED_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::SecondAttack, PLAYER_SECOND_ATTACK_FRAMES);
+        animation_indices.insert(CharacterState::Hit, PLAYER_HIT_FRAMES);
+        animation_indices.insert(CharacterState::Dead, PLAYER_DEAD_FRAMES);
 
         **character_spritehseet_loaded = true;
         let image_handle = image_handle.clone();
@@ -84,7 +92,17 @@ fn generate_crowd(
         let crowd_member_spacing = CROWD_SPAN * 2.0 / CROWD_SIZE as f32;
         let mut current_crowd_member_x = -CROWD_SPAN;
 
-        for _ in 0..CROWD_SIZE {
+        let parent = commands
+            .spawn((
+                Name::new("Crowd"),
+                GlobalTransform::default(),
+                Transform::default(),
+                ComputedVisibility::default(),
+                Visibility::default(),
+            ))
+            .id();
+
+        for count in 0..CROWD_SIZE {
             let image = image_handle.clone();
             let mut image_dynamic = image.try_into_dynamic().unwrap();
             image_dynamic = image_dynamic.huerotate(rand.gen_range(0..360));
@@ -92,30 +110,34 @@ fn generate_crowd(
 
             let texture_handle = assets.add(Image::from_dynamic(image_dynamic, true));
             let texture_atlas =
-                TextureAtlas::from_grid(texture_handle, Vec2::new(122.0, 122.0), 34, 1, None, None);
+                TextureAtlas::from_grid(texture_handle, Vec2::new(200., 200.), 35, 1, None, None);
             let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
             let texture_atlas_sprite = TextureAtlasSprite::new(0);
 
-            commands.spawn((
-                SpriteSheetBundle {
-                    texture_atlas: texture_atlas_handle,
-                    sprite: texture_atlas_sprite,
-                    transform: Transform::from_translation(Vec3::new(
-                        current_crowd_member_x + rand.gen_range(-10.0..=10.0),
-                        -55.0,
-                        CROWD_CHARACTER_Z,
+            commands.entity(parent).with_children(|parent| {
+                parent.spawn((
+                    SpriteSheetBundle {
+                        texture_atlas: texture_atlas_handle,
+                        sprite: texture_atlas_sprite,
+                        transform: Transform::from_translation(Vec3::new(
+                            current_crowd_member_x + rand.gen_range(-10.0..=10.0),
+                            CROWD_Y,
+                            CROWD_Z,
+                        )),
+                        ..default()
+                    },
+                    CrowdMember,
+                    CharacterState::Idle,
+                    AnimationTimer(Timer::from_seconds(
+                        0.1 + rand.gen_range(-0.02..0.02),
+                        TimerMode::Repeating,
                     )),
-                    ..default()
-                },
-                CrowdMember,
-                CharacterState::Idle,
-                AnimationTimer(Timer::from_seconds(
-                    0.1 + rand.gen_range(-0.02..0.02),
-                    TimerMode::Repeating,
-                )),
-                animation_indices.clone(),
-            ));
+                    animation_indices.clone(),
+                    // To match the animate_characters query (DEBUG update)
+                    Name::new(format!("Spectator n°{}", count)),
+                ));
+            });
 
             current_crowd_member_x += crowd_member_spacing;
         }
