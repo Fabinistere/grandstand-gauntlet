@@ -110,11 +110,14 @@ fn player_attack(
         } else if keyboard_input.just_released(KeyCode::Return)
             || buttons.just_released(MouseButton::Left)
         {
-            *state = if attack_charge.timer.finished() {
-                CharacterState::ChargedAttack
-            } else {
-                CharacterState::Attack
-            };
+            // the charge was not canceled (prevent being canceled but having in the 'buffer' a charged attack)
+            if *state == CharacterState::TransitionToCharge || *state == CharacterState::Charge {
+                *state = if attack_charge.timer.finished() {
+                    CharacterState::ChargedAttack
+                } else {
+                    CharacterState::Attack
+                };
+            }
 
             rb_vel.linvel = Vect::ZERO;
             attack_charge.timer.reset();
