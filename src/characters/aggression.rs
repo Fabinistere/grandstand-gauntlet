@@ -382,7 +382,7 @@ fn damage_hit(
                 if hp.current <= attack_damage.0 {
                     match (player_query.get(*target), boss_query.get(*target)) {
                         // BUG: this case happens cause of: for loop in attack_collision
-                        (Err(_), Err(_)) => warn!("An entity that is neither a player nor a boss (probably a DeadBody) is molested."),
+                        (Err(_), Err(_)) => continue, // warn!("An entity that is neither a player nor a boss (probably a DeadBody) is molested.")
                         (Ok(_), Ok(_)) => warn!("The player is the boss and is under attack"),
                         (Err(_), Ok(_)) => {
                             hp.current = 0;
