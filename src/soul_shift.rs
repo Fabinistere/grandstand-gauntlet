@@ -4,12 +4,13 @@ use bevy_rapier2d::prelude::*;
 use crate::{
     characters::{
         aggression::Hp,
-        animations::CharacterState,
+        // animations::CharacterState,
         player::{CreatePlayerEvent, Player, PlayerDeathEvent},
         DeadBody,
     },
     constants::character::CHAR_POSITION,
     crowd::CrowdMember,
+    MySystems,
 };
 
 pub struct SoulShiftPlugin;
@@ -17,8 +18,8 @@ pub struct SoulShiftPlugin;
 impl Plugin for SoulShiftPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SoulShiftEvent>()
-            .add_system(start_soul_shift.label("Soul Shift"))
-            .add_system(suicide_to_soul_shift);
+            .add_system(suicide_to_soul_shift.before(MySystems::SoulShift))
+            .add_system(start_soul_shift.label(MySystems::SoulShift));
     }
 }
 
@@ -51,6 +52,9 @@ fn suicide_to_soul_shift(
     }
 }
 
+/// # Note
+///
+/// IDEA: Panic movement when neighbours die or Standing Ovation
 pub fn start_soul_shift(
     mut commands: Commands,
 
@@ -61,7 +65,7 @@ pub fn start_soul_shift(
         (
             Entity,
             &mut Transform,
-            &mut CharacterState,
+            // &mut CharacterState,
             &mut Velocity,
             &Hp,
             &Name,
@@ -78,6 +82,7 @@ pub fn start_soul_shift(
 ) {
     for SoulShiftEvent(entity) in soul_shift_event.iter() {
         match player_query.get_mut(*entity) {
+            // handle the multiple events thrown by damage_hit
             Err(e) => warn!(
                 "The Entity asked for a SoulShift is already treated: {:?}",
                 e
@@ -86,7 +91,7 @@ pub fn start_soul_shift(
             Ok((
                 player_entity,
                 mut player_transform,
-                mut player_state,
+                // mut player_state,
                 mut player_velocity,
                 player_hp,
                 player_name,
@@ -114,10 +119,10 @@ pub fn start_soul_shift(
 
                     // ------- Kill for good the old body -------
 
-                    *player_state = CharacterState::Dead;
+                    // *player_state = CharacterState::Dead;
                     commands
                         .entity(player_entity)
-                        .insert((SoulShifting, DeadBody))
+                        .insert(SoulShifting)
                         .remove::<Player>();
                     // DEBUG: maybe will be too slow and all single on Player will break
                     // ^^^^^^------ System Ordering

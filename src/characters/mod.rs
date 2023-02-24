@@ -6,12 +6,16 @@ pub mod player;
 
 use bevy::prelude::*;
 
-use crate::locations::run_if_the_player_is_not_frozen;
-
-use self::{
-    aggression::AggressionPlugin, animations::animate_character,
-    animations::jump_frame_player_state, player::PlayerPlugin, npcs::NPCsPlugin,
+use crate::{
+    characters::{
+        aggression::AggressionPlugin, animations::animate_character,
+        animations::jump_frame_character_state,
+        npcs::NPCsPlugin,
+        player::PlayerPlugin,
+    },
+    locations::run_if_the_player_is_not_frozen,
 };
+
 
 pub struct CharacterPlugin;
 
@@ -19,6 +23,8 @@ impl Plugin for CharacterPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
         app 
+            // REFACTOR: Remove filters in favour of a `System Order of Execution`
+            // ^^^^^^^^^------- filters used to weirdly correct bugs (whihc cause new bugs...)
             .add_plugin(NPCsPlugin)
             .add_plugin(PlayerPlugin)
             .add_plugin(AggressionPlugin)
@@ -28,16 +34,17 @@ impl Plugin for CharacterPlugin {
                     .with_run_criteria(run_if_the_player_is_not_frozen)
                     .with_system(move_dead_bodies)
             )
-            .add_system_set_to_stage(
+            // CoreStage::Last (after player_death_event and player_attack player_movement) but should be fine
+            .add_system_to_stage(
                 // ensure that the changes in each CharacterPhase are made
                 CoreStage::PostUpdate,
-                SystemSet::new()
-                    .with_system(jump_frame_player_state.before(animate_character))
+                jump_frame_character_state
+                    .before(animate_character)
+                    
             )
-            .add_system_set_to_stage(
+            .add_system_to_stage(
                 CoreStage::PostUpdate,
-                SystemSet::new()
-                    .with_system(animate_character)
+                animate_character
             )
             ;
     }

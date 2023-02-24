@@ -18,7 +18,8 @@ pub mod character {
         use super::CHAR_Z;
         use crate::characters::animations::CharacterState;
 
-        pub const PLAYER_POSITION: (f32, f32, f32) = (-40., -60., CHAR_Z);
+        pub const PLAYER_HP: i32 = 40;
+        pub const PLAYER_POSITION: (f32, f32, f32) = (-1080., -60., CHAR_Z);
 
         pub const BOTTOM_WHIP_POS: (f32, f32, f32) = (10., -5.5, 0.);
         pub const FRONT_WHIP_POS: (f32, f32, f32) = (30., -3., 0.);
@@ -54,6 +55,7 @@ pub mod character {
         use crate::characters::animations::CharacterState;
 
         pub const BOSS_HP: i32 = 1000;
+        pub const BOSS_SPEED: f32 = 10.;
 
         pub const BOSS_SMASH_COOLDOWN: f32 = 5.;
 
@@ -72,9 +74,9 @@ pub mod character {
         // -- Animation --
         pub const BOSS_IDLE_FRAMES: (usize, usize, CharacterState) = (0, 4, CharacterState::Idle);
         pub const BOSS_RUN_FRAMES: (usize, usize, CharacterState) = (5, 10, CharacterState::Idle);
-        pub const BOSS_TRANSITION_TO_CHARGE_FRAMES: (usize, usize, CharacterState) =
-            (11, 18, CharacterState::Charge);
-        pub const BOSS_CHARGE_FRAMES: (usize, usize, CharacterState) =
+        // pub const BOSS_CHARGE_FRAMES: (usize, usize, CharacterState) =
+        //     (11, 14, CharacterState::Attack);
+        pub const BOSS_TRANSITION_TO_SMASH_FRAMES: (usize, usize, CharacterState) =
             (11, 14, CharacterState::Attack);
         pub const BOSS_SMASH_FRAMES: (usize, usize, CharacterState) =
             (15, 18, CharacterState::Idle);
