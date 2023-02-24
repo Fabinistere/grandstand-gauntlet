@@ -122,6 +122,7 @@ pub fn player_dash(
         }
         // cost: 10hp (cause of bam_the_player)
         else if keyboard_input.just_pressed(KeyCode::Space) {
+            info!("HYPEEEEEEEEEER DAAASH !!");
             commands.entity(player).insert((
                 HyperDashTimer(Timer::from_seconds(0.5, TimerMode::Once)),
                 Invulnerable(Timer::from_seconds(0.5, TimerMode::Once)),
