@@ -7,9 +7,12 @@ use crate::{
     characters::{
         animations::CharacterState,
         movement::CharacterHitbox,
-        npcs::boss::Boss,
+        npcs::boss::{Boss, aggression::BossDeathEvent},
         player::Player,
-    }, soul_shift::{SoulShiftEvent, SoulShifting, start_soul_shift}, crowd::CrowdMember
+    },
+    soul_shift::{SoulShiftEvent, SoulShifting},
+    crowd::CrowdMember,
+    MySystems
 };
 
 use super::npcs::boss::BossAttack;
@@ -24,54 +27,38 @@ impl Plugin for AggressionPlugin {
             .add_event::<FlipAttackSensorEvent>()
             .add_system(flip_attack_sensor)
             .add_system(charged_attack)
-            .add_system(damage_animation.label("Damage Animation").after("Damage Hit"))
+            .add_system(
+                damage_animation
+                    .label(MySystems::DamageAnimation)
+                    .after(MySystems::DamageHit)
+            )
             // -- ? --
             .add_event::<DamageHitEvent>()
-            .add_system(invulnerability_timer.label("Invulnerability Timer"))
-            .add_system(cooldown_timer.label("Cooldown Timer"))
-            .add_system(player_attack_hitbox_activation.label("Player Attack Hitbox Activation"))
+            .add_system(invulnerability_timer)
+            .add_system(cooldown_timer)
+            .add_system(
+                player_attack_hitbox_activation
+                    .label(MySystems::PlayerAttackHitboxActivation)
+            )
             .add_system(
                 attack_collision
-                    .label("Attack Collision")
-                    .after("Player Attack Hitbox Activation")
-                    .after("Boss Attack Hitbox Activation")
-                    .after(start_soul_shift)
+                    .label(MySystems::AttackCollision)
+                    .after(MySystems::PlayerAttackHitboxActivation)
+                    .after(MySystems::BossAttackHitboxActivation)
             )
-            .add_system(bam_the_player.label("Bam The Player"))
+            .add_system(bam_the_player)
             .add_system(
                 damage_hit
-                    .label("Damage Hit")
-                    .after(start_soul_shift)
-                    .after("Bam The Player")
-                    .after("Attack Collision")
+                    .label(MySystems::DamageHit)
+                    .before(MySystems::SoulShift)
+                    .after(bam_the_player)
+                    .after(MySystems::AttackCollision)
             )
             ;
     }
 }
 
-#[derive(Component)]
-pub struct AttackSensor;
-
-#[derive(Component, Debug)]
-pub struct AttackCharge {
-    pub charging: bool,
-    pub timer: Timer,
-}
-
-pub struct FlipAttackSensor(pub Entity);
-
-/// Contains the damage it deals
-#[derive(Component)]
-pub struct AttackHitbox(pub i32);
-
-#[derive(Component, Debug, Deref, DerefMut)]
-pub struct Invulnerable(pub Timer);
-
-#[derive(Component, Deref, DerefMut)]
-pub struct AttackCooldown(pub Timer);
-
-#[derive(Component)]
-pub struct DeadBody;
+// -- Character Description --
 
 #[derive(Component, Inspectable)]
 pub struct Hp {
@@ -83,11 +70,54 @@ impl Hp {
     pub fn default() -> Hp {
         Hp { current: 100, max: 100 }
     }
-
+    
     pub fn new(max: i32) -> Hp {
         Hp { current: max, max }
     }
 }
+
+#[derive(Component, Debug)]
+pub struct AttackCharge {
+    pub charging: bool,
+    pub timer: Timer,
+}
+
+#[derive(Component, Debug, Deref, DerefMut)]
+pub struct Invulnerable(pub Timer);
+
+#[derive(Component)]
+pub struct DeadBody;
+
+// -- Specific Hitbox for Attack --
+
+/// Contains the damage it deals
+/// 
+/// # Note
+/// 
+/// TODO: Remove field and impl AttackStats instead.
+#[derive(Component)]
+pub struct AttackHitbox(pub i32);
+
+/// Contains the damage it deals
+/// 
+/// # Note
+/// 
+/// TODO: Implement it
+#[derive(Component)]
+pub struct AttackStats {
+    /// Static Damage
+    pub base_damage: i32,
+    /// 1.2 = 20% dmg up
+    pub bonus: f32,
+}
+
+#[derive(Component)]
+pub struct AttackSensor;
+
+#[derive(Component, Deref, DerefMut)]
+pub struct AttackCooldown(pub Timer);
+
+// -- Events --
 
 /// Happens when
 ///   - characters::aggression::attack_collision
@@ -142,7 +172,6 @@ fn flip_attack_sensor(
                         // flip the sensor vertically
                         Ok(mut transform) => {
                             transform.translation.x *= -1.;
-                            // transform.scale.x *= -1.;
                         }
                     }
                 }
@@ -288,23 +317,27 @@ fn attack_collision(
 
     mut damage_hit_event: EventWriter<DamageHitEvent>,
 ) {
-    // OPTIMIZE: Querying all attack hitbox then all character hitbox is not very efficient
-    for (attack_hitbox_entity, parent_hitbox) in attack_hitbox_query.iter() {
-        for (character_hitbox, target) in character_hitbox_query.iter() {
-            match target_query.get(**target) {
-                // The target is invulnerable
-                Err(_) => continue,
-                Ok(_) => {
+    // OPTIMIZE: Find a way to detect ongoing collision (even without movement)
+    for (character_hitbox, target) in character_hitbox_query.iter() {
+        match target_query.get(**target) {
+            // The target is invulnerable
+            Err(_) => continue,
+            Ok(_) => {
+                for (attack_hitbox_entity, parent_hitbox) in attack_hitbox_query.iter() {
                     if rapier_context.intersection_pair(attack_hitbox_entity, character_hitbox) == Some(true) {
                         match attack_sensor_query.get(**parent_hitbox) {
                             Err(e) => warn!("The attackHitbox's hierarchy is invalid: {:?}", e),
                             Ok((_, attacker)) => {
                                 if **attacker != **target {
+
+                                    // BUG: Send one too many undesirable/unsafe events - cause = for loop in attack_collision
+                                    // info!("Damage Hit Event SENDED!");
                                     damage_hit_event.send(DamageHitEvent {
                                         attack_hitbox: attack_hitbox_entity,
                                         target: **target
                                     });
-                                    // info!("Damage Hit Event !");
+                                    // prevent other active hitbox to strike too
+                                    return;
                                 }
                             }
                         }
@@ -320,8 +353,6 @@ fn attack_collision(
 /// Send a ~~Death Event~~ Soul Shift Event if it's too much...
 /// 
 /// # Note
-/// 
-/// BUG: If the player is in the two attack hitbox delimitors (Smash) - the two will hurt them
 fn damage_hit(
     mut damage_hit_event: EventReader<DamageHitEvent>,
     
@@ -332,8 +363,10 @@ fn damage_hit(
     mut target_query: Query<&mut Hp, (Without<Invulnerable>, Without<SoulShifting>, Without<CrowdMember>)>,
     
     player_query: Query<Entity, With<Player>>,
+    boss_query: Query<Entity, With<Boss>>,
 
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
+    mut boss_death_event: EventWriter<BossDeathEvent>,
 ) {
     for DamageHitEvent {attack_hitbox, target} in damage_hit_event.iter() {
         // There is no longer a long queue of events
@@ -347,14 +380,20 @@ fn damage_hit(
 
                 // info!("Damage Hit Event To a Vulnerable target!");
                 if hp.current <= attack_damage.0 {
-                    hp.current = 0;
-                    info!("Lethal Damage!");
-
-                    match player_query.get(*target) {
-                        Err(_) => {
-                            // TODO: Boss Death Event
+                    match (player_query.get(*target), boss_query.get(*target)) {
+                        // BUG: this case happens cause of: for loop in attack_collision
+                        (Err(_), Err(_)) => warn!("An entity that is neither a player nor a boss (probably a DeadBody) is molested."),
+                        (Ok(_), Ok(_)) => warn!("The player is the boss and is under attack"),
+                        (Err(_), Ok(_)) => {
+                            hp.current = 0;
+                            info!("Lethal Damage!");
+        
+                            boss_death_event.send(BossDeathEvent);
                         }
-                        Ok(_) => {
+                        (Ok(_), Err(_)) => {
+                            hp.current = 0;
+                            info!("Lethal Damage!");
+        
                             // commands.entity(*target).insert(SoulShifting);
                             soul_shift_event.send(SoulShiftEvent(*target));
                         }
@@ -363,7 +402,6 @@ fn damage_hit(
                     hp.current -= attack_damage.0;
                     // Seperate player and boss gestion of getting hit
                     let invul_timer;
-                    // IDEA: Invulnerable Hint
                     match player_query.get(*target) {
                         // if not a player (normally is a boss)
                         Err(_) => {
@@ -373,7 +411,8 @@ fn damage_hit(
                             invul_timer = 2.;
                         }
                     }
-
+                    
+                    // IDEA: Invulnerable Hint
                     commands
                         .entity(*target)
                         .insert(Invulnerable(Timer::from_seconds(invul_timer, TimerMode::Once)));
@@ -384,9 +423,13 @@ fn damage_hit(
 }
 
 /// Change the Animation to Hit when being hurted.
+/// 
+/// # Note
+/// 
 /// TODO: feature - Prevent hit anim while healing
-/// Carefull: Even if the Hp is rising this animation will trigger
-fn damage_animation(
+/// ^^^^^---- Carefull: Even if the Hp is rising this animation will trigger
+/// BUG: Player can cancel the incomming attack by preshot the boss
+pub fn damage_animation(
     // DEBUG: Crowd getting hit (maybe the prb is here)
     mut bleeding_character_query: Query<(Entity, &mut CharacterState), Changed<Hp>>,
 ) {

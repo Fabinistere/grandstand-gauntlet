@@ -9,7 +9,7 @@ use crate::{
         // Invulnerable,
         animations::CharacterState,
         movement::CharacterHitbox,
-        player::PlayerHitbox,
+        player::{PlayerHitbox, PossesionCount},
     },
     // collisions::CollisionEventExt,
     constants::character::boss::BOSS_SMASH_COOLDOWN,
@@ -29,8 +29,18 @@ use super::{Boss, BossAttackFalleAngel, BossAttackSmash};
 //     }
 // }
 
+// DOC: move it up with and named it better
 #[derive(Component)]
 pub struct BossSensor;
+
+/// Happens when
+///   - ???
+///     - action
+///
+/// Read in
+///   - ???
+///     - action
+pub struct BossDeathEvent;
 
 /// DEBUG: TEMPORARY
 ///
@@ -82,14 +92,11 @@ pub fn boss_close_detection(
         if let Ok((player_sensor, _player)) = player_sensor_query.get_single() {
             // Phase 3 - Player TP proof
             if rapier_context.intersection_pair(attack_sensor, player_sensor) == Some(true) {
-                // IDEA: MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
-                // ^^^^^------ With Dash/Death TP for example
-
                 match attacker_query.get_mut(**boss) {
                     // DEBUG: (in the start of the game) / Every time a entity spawns, log the name + current identifier
-                    Err(e) => warn!("This entity: {:?} Cannot animate: {:?}", **boss, e),
+                    Err(e) => warn!("This entity: {:?} Cannot be animated: {:?}", **boss, e),
                     Ok(mut state) => {
-                        *state = CharacterState::Attack;
+                        *state = CharacterState::TransitionToCharge;
                     }
                 }
 
@@ -181,5 +188,23 @@ pub fn boss_attack_hitbox_activation(
                 }
             }
         }
+    }
+}
+
+/// # Note
+///
+/// TODO: End of the Game
+pub fn boss_death(
+    mut boss_death_event: EventReader<BossDeathEvent>,
+    possesion_count: Res<PossesionCount>,
+) {
+    for _ in boss_death_event.iter() {
+        // IDEA: a in game text could prompts the number of spectators used/sacrified
+        // if #ofpossesion = #ofspectators, replace it by "with the last spectator mad enough to stay"
+        println!(
+            "CONGRATS ! You Killed the Hero with only {} spectators sacrifies",
+            possesion_count.0
+        );
+        // IDEA: The final possesion... (see the bible (by olf))
     }
 }

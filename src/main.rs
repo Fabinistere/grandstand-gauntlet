@@ -17,6 +17,32 @@ use bevy_rapier2d::prelude::*;
 
 use constants::{CLEAR, TILE_SIZE};
 
+/// See Usage and example here: [System Label](https://bevy-cheatbook.github.io/programming/labels.html)
+///
+/// # Note
+///
+/// DOC: Name it better
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
+pub enum MySystems {
+    /// The Player launched a attack
+    PlayerAttackHitboxActivation,
+    /// The Boss launched a attack
+    BossAttackHitboxActivation,
+    /// A AttackHitbox touches a CharacterHitbox
+    AttackCollision,
+    DamageHit,
+    DamageAnimation,
+    /// Soul Shift Event Handler
+    ///
+    /// End the dying current player (TODO: it shouldn't) and
+    /// Respawn them into the closest crowd member
+    SoulShift,
+    /// Give all require component to the new player
+    NewBeginning,
+    /// End the dying past player
+    PlayerDeath,
+}
+
 #[rustfmt::skip]
 fn main() {
     // env::set_var("RUST_BACKTRACE", "FULL");

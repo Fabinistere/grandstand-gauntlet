@@ -1,6 +1,5 @@
 use bevy::{prelude::*, utils::HashMap};
 use bevy_inspector_egui::Inspectable;
-use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{aggression::DeadBody, npcs::boss::Boss, player::Player},
@@ -48,8 +47,6 @@ pub fn animate_character(
             &mut TextureAtlasSprite,
             &Handle<TextureAtlas>,
             &mut CharacterState,
-            // for moving Dead Bodies
-            &mut Velocity,
             &Name,
         ),
         Or<(With<Player>, With<Boss>, With<CrowdMember>, With<DeadBody>)>,
@@ -62,7 +59,6 @@ pub fn animate_character(
         mut sprite,
         texture_atlas_handle,
         mut character_state,
-        mut rb_vel,
         name,
     ) in &mut query
     {
@@ -96,7 +92,6 @@ pub fn animate_character(
                 warn!("anim limit reached: {}", name);
                 // *character_state = CharacterState::Dead;
                 commands.entity(character).remove::<AnimationTimer>();
-                rb_vel.linvel = Vect::ZERO;
             }
         }
     }
@@ -107,7 +102,7 @@ pub fn animate_character(
 pub fn jump_frame_player_state(
     mut query: Query<
         (&AnimationIndices, &mut TextureAtlasSprite, &CharacterState),
-        (Or<(With<Player>, With<Boss>)>, Changed<CharacterState>),
+        Changed<CharacterState>,
     >,
 ) {
     for (indices, mut sprite, player_state) in &mut query {
