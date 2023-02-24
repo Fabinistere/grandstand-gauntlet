@@ -70,8 +70,6 @@ pub fn animate_character(
             // TODO: longer animation of "getting hit"
             // IDEA: Invulnerable Hint - see characters::aggrssion::invulnerability_timer
 
-            // BUG: `index out of bounds: the len is 35 but the index is 35`
-            // ^^^^---- When a DeadBody doesn't have the CharacterState::Dead
             // eprintln!("{:#?}", sprite);
 
             let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
@@ -99,14 +97,14 @@ pub fn animate_character(
 
 /// Anytime the CharacterState change,
 /// force the sprite to match this change.
-pub fn jump_frame_player_state(
+pub fn jump_frame_character_state(
     mut query: Query<
         (&AnimationIndices, &mut TextureAtlasSprite, &CharacterState),
         Changed<CharacterState>,
     >,
 ) {
-    for (indices, mut sprite, player_state) in &mut query {
-        let (first_indice, _, _) = &indices[&player_state];
+    for (indices, mut sprite, character_state) in &mut query {
+        let (first_indice, _, _) = &indices[&character_state];
         // Jump directly to the correct frame when the state has changed
         sprite.index = *first_indice;
     }

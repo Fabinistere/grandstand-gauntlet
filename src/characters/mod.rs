@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use crate::{
     characters::{
         aggression::AggressionPlugin, animations::animate_character,
-        animations::jump_frame_player_state,
+        animations::jump_frame_character_state,
         npcs::NPCsPlugin,
         player::PlayerPlugin,
     },
@@ -38,7 +38,7 @@ impl Plugin for CharacterPlugin {
             .add_system_to_stage(
                 // ensure that the changes in each CharacterPhase are made
                 CoreStage::PostUpdate,
-                jump_frame_player_state
+                jump_frame_character_state
                     .before(animate_character)
                     
             )
@@ -72,7 +72,7 @@ fn move_dead_bodies(
             || keyboard_input.pressed(KeyCode::Left);
 
         let dir = right as i8 - left as i8;
-        const SPEED: f32 = 25.0;
+        const SPEED: f32 = 5.;
 
         transform.translation.x += -dir as f32 * SPEED * time.delta_seconds();
     }
