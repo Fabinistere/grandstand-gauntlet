@@ -72,7 +72,7 @@ fn move_dead_bodies(
             || keyboard_input.pressed(KeyCode::Left);
 
         let dir = right as i8 - left as i8;
-        const SPEED: f32 = 25.0;
+        const SPEED: f32 = 5.;
 
         transform.translation.x += -dir as f32 * SPEED * time.delta_seconds();
     }

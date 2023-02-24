@@ -110,11 +110,14 @@ fn player_attack(
         } else if keyboard_input.just_released(KeyCode::Return)
             || buttons.just_released(MouseButton::Left)
         {
-            *state = if attack_charge.timer.finished() {
-                CharacterState::ChargedAttack
-            } else {
-                CharacterState::Attack
-            };
+            // the charge was not canceled (prevent being canceled but having in the 'buffer' a charged attack)
+            if *state == CharacterState::TransitionToCharge || *state == CharacterState::Charge {
+                *state = if attack_charge.timer.finished() {
+                    CharacterState::ChargedAttack
+                } else {
+                    CharacterState::Attack
+                };
+            }
 
             rb_vel.linvel = Vect::ZERO;
             attack_charge.timer.reset();
@@ -139,13 +142,21 @@ fn player_death_event(
     mut commands: Commands,
 
     mut possesion_count: ResMut<PossesionCount>,
-    mut player_query: Query<(Entity, &mut Velocity, &mut CharacterState), Without<CrowdMember>>,
+    mut player_query: Query<
+        (
+            Entity,
+            &mut Velocity,
+            &mut CharacterState,
+            &mut TextureAtlasSprite,
+        ),
+        Without<CrowdMember>,
+    >,
 ) {
     for player_death in death_event.iter() {
         // info!("DEATH EVENNNT !!");
         match player_query.get_mut(player_death.0) {
             Err(e) => warn!("DEBUG: No player.... {:?}", e),
-            Ok((player, mut rb_vel, mut state)) => {
+            Ok((player, mut rb_vel, mut state, mut sprite)) => {
                 // Death Anim
                 *state = CharacterState::Dead;
                 rb_vel.linvel = Vect::ZERO;
@@ -158,7 +169,11 @@ fn player_death_event(
                         // AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Once)),
                     ))
                     .remove::<SoulShifting>()
-                    .remove::<Player>();
+                    .remove::<Player>()
+                    .remove::<Invulnerable>();
+
+                const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
+                sprite.color = WHITE;
 
                 // The list's growing...
                 possesion_count.0 += 1;
@@ -194,9 +209,6 @@ fn clean_up_dead_bodies(
 /// These two systems being in the same stage, mess this order.
 ///
 /// SOLUTION: Place the player_movement / player_attack in a stage after player_death_event (Commands execution)
-///
-/// TODO: Movement should be links to the DeltaTime
-/// TODO: Dying while running skip the death animation and the velocity reset
 fn player_movement(
     mut commands: Commands,
 
@@ -211,17 +223,18 @@ fn player_movement(
         ),
         (With<Player>, Without<CrowdMember>, Without<DeadBody>),
     >,
-    // TODO: time: Res<Time>,
+    time: Res<Time>,
+
     mut flip_direction_event: EventWriter<FlipAttackSensorEvent>,
 ) {
     if let Ok((player, speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
         player_query.get_single_mut()
     {
         // If player is attacking, don't allow them to move
-        if *player_state == CharacterState::Attack
+        if *player_state == CharacterState::TransitionToCharge
+            || *player_state == CharacterState::Charge
+            || *player_state == CharacterState::Attack
             || *player_state == CharacterState::SecondAttack
-            // || *player_state == CharacterState::TransitionToCharge
-            // || *player_state == CharacterState::Charge
             || *player_state == CharacterState::ChargedAttack
         // Order Execution of System (and stage) is taken care of the case a DeadBody wants to move/attack
         // || *player_state == CharacterState::Dead
@@ -241,7 +254,7 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        rb_vel.linvel.x = x_axis as f32 * **speed; // * 200. * time.delta_second()
+        rb_vel.linvel.x = x_axis as f32 * **speed * 200. * time.delta_seconds();
 
         // ---- Animation ----
 
@@ -345,7 +358,7 @@ fn create_player(
                 RigidBody::Dynamic,
                 LockedAxes::ROTATION_LOCKED,
                 MovementBundle {
-                    speed: Speed::default(),
+                    speed: Speed::new(PLAYER_SPEED),
                     velocity: Velocity {
                         linvel: Vect::ZERO,
                         angvel: 0.,
