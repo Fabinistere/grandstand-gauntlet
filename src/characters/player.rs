@@ -194,9 +194,6 @@ fn clean_up_dead_bodies(
 /// These two systems being in the same stage, mess this order.
 ///
 /// SOLUTION: Place the player_movement / player_attack in a stage after player_death_event (Commands execution)
-///
-/// TODO: Movement should be links to the DeltaTime
-/// TODO: Dying while running skip the death animation and the velocity reset
 fn player_movement(
     mut commands: Commands,
 
@@ -211,17 +208,18 @@ fn player_movement(
         ),
         (With<Player>, Without<CrowdMember>, Without<DeadBody>),
     >,
-    // TODO: time: Res<Time>,
+    time: Res<Time>,
+
     mut flip_direction_event: EventWriter<FlipAttackSensorEvent>,
 ) {
     if let Ok((player, speed, mut rb_vel, mut texture_atlas_sprite, mut player_state)) =
         player_query.get_single_mut()
     {
         // If player is attacking, don't allow them to move
-        if *player_state == CharacterState::Attack
+        if *player_state == CharacterState::TransitionToCharge
+            || *player_state == CharacterState::Charge
+            || *player_state == CharacterState::Attack
             || *player_state == CharacterState::SecondAttack
-            // || *player_state == CharacterState::TransitionToCharge
-            // || *player_state == CharacterState::Charge
             || *player_state == CharacterState::ChargedAttack
         // Order Execution of System (and stage) is taken care of the case a DeadBody wants to move/attack
         // || *player_state == CharacterState::Dead
@@ -241,7 +239,7 @@ fn player_movement(
 
         let x_axis = (right as i8) - left as i8;
 
-        rb_vel.linvel.x = x_axis as f32 * **speed; // * 200. * time.delta_second()
+        rb_vel.linvel.x = x_axis as f32 * **speed * 200. * time.delta_seconds();
 
         // ---- Animation ----
 
@@ -345,7 +343,7 @@ fn create_player(
                 RigidBody::Dynamic,
                 LockedAxes::ROTATION_LOCKED,
                 MovementBundle {
-                    speed: Speed::default(),
+                    speed: Speed::new(PLAYER_SPEED),
                     velocity: Velocity {
                         linvel: Vect::ZERO,
                         angvel: 0.,

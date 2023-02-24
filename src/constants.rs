@@ -19,6 +19,8 @@ pub mod character {
         use crate::characters::animations::CharacterState;
 
         pub const PLAYER_HP: i32 = 40;
+        // TODO: optional - to Test and perfectly replicate the past speed, just spawn a dummy entity with a movement controller (and old formula).
+        pub const PLAYER_SPEED: f32 = 30.;
         pub const PLAYER_POSITION: (f32, f32, f32) = (-1080., -60., CHAR_Z);
 
         pub const BOTTOM_WHIP_POS: (f32, f32, f32) = (10., -5.5, 0.);
