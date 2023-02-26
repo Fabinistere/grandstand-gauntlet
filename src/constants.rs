@@ -19,6 +19,8 @@ pub mod character {
         use crate::characters::animations::CharacterState;
 
         pub const PLAYER_HP: i32 = 40;
+        // TODO: optional - to Test and perfectly replicate the past speed, just spawn a dummy entity with a movement controller (and old formula).
+        pub const PLAYER_SPEED: f32 = 15.;
         pub const PLAYER_POSITION: (f32, f32, f32) = (-1080., -60., CHAR_Z);
 
         pub const BOTTOM_WHIP_POS: (f32, f32, f32) = (10., -5.5, 0.);
@@ -70,6 +72,13 @@ pub mod character {
         pub const BOSS_HITBOX_SIZE: f32 = 12.;
         pub const BOSS_RANGE_HITBOX_SIZE: f32 = 40.;
         pub const BOSS_HITBOX_OFFSET_Y: (f32, f32, f32) = (0., 5., 0.);
+
+        pub mod attack_hitbox {}
+
+        pub mod behaviors_sensors {
+            pub const BACKSTROKE_DASH_POS: (f32, f32, f32) = (90., -20., 0.);
+            pub const BACKSTROKE_DASH_SENSOR: (f32, f32) = (15., 60.);
+        }
 
         // -- Animation --
         pub const BOSS_IDLE_FRAMES: (usize, usize, CharacterState) = (0, 4, CharacterState::Idle);

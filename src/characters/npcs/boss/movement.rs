@@ -6,7 +6,7 @@ use crate::{
         aggression::FlipAttackSensorEvent,
         animations::CharacterState,
         movement::Speed,
-        npcs::boss::{Boss, BossBehavior},
+        npcs::boss::{behaviors::BossBehavior, Boss},
         player::Player,
         Freeze,
     },

@@ -7,15 +7,13 @@ use crate::{
     characters::{
         animations::CharacterState,
         movement::CharacterHitbox,
-        npcs::boss::{Boss, aggression::BossDeathEvent},
+        npcs::boss::{Boss, aggression::BossDeathEvent, BossAttack, behaviors::BossSensor},
         player::Player,
     },
     soul_shift::{SoulShiftEvent, SoulShifting},
     crowd::CrowdMember,
     MySystems
 };
-
-use super::npcs::boss::BossAttack;
 
 pub struct AggressionPlugin;
 
@@ -159,7 +157,7 @@ fn flip_attack_sensor(
 
     character_query: Query<&Children, Or<(With<Player>, With<Boss>)>>,
     // With<Sensor>, 
-    mut attack_sensor_query: Query<&mut Transform, With<AttackSensor>>,
+    mut attack_sensor_query: Query<&mut Transform, Or<(With<AttackSensor>, With<BossSensor>)>>,
 ) {
     for FlipAttackSensorEvent(character_to_flip) in flip_direction_event.iter() {
         match character_query.get(*character_to_flip) {
@@ -194,9 +192,9 @@ fn invulnerability_timer(
 
         // OPTIMIZE: The color change just need to change once per sec (not every frame)
         const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
-        // change it to be custom (character depending)
+        // TODO: feature - change it to be custom (character depending)
         // 246 215 215
-        const HIT_COLOR: Color = Color::rgb(0.96, 0.84, 0.84);
+        const HIT_COLOR: Color = Color::rgb(0.96, 0.54, 0.54);
         
         if invulnerability.just_finished() {
             sprite.color = WHITE;
@@ -382,7 +380,7 @@ fn damage_hit(
                 if hp.current <= attack_damage.0 {
                     match (player_query.get(*target), boss_query.get(*target)) {
                         // BUG: this case happens cause of: for loop in attack_collision
-                        (Err(_), Err(_)) => warn!("An entity that is neither a player nor a boss (probably a DeadBody) is molested."),
+                        (Err(_), Err(_)) => continue, // warn!("An entity that is neither a player nor a boss (probably a DeadBody) is molested.")
                         (Ok(_), Ok(_)) => warn!("The player is the boss and is under attack"),
                         (Err(_), Ok(_)) => {
                             hp.current = 0;

@@ -15,10 +15,8 @@ impl Plugin for CrowdPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(generate_crowd.with_run_criteria(texture_not_loaded))
-            .add_system_set(
-                SystemSet::new()
-                    .with_run_criteria(run_if_the_player_is_not_frozen)
-                    .with_system(move_crowd_with_background),
+            .add_system(
+                move_crowd_with_background.with_run_criteria(run_if_the_player_is_not_frozen),
             )
             .insert_resource(CharacterSpriteSheetLoaded(false));
     }
