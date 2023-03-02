@@ -361,7 +361,7 @@ fn damage_hit(
     mut target_query: Query<&mut Hp, (Without<Invulnerable>, Without<SoulShifting>, Without<CrowdMember>)>,
     
     player_query: Query<Entity, With<Player>>,
-    boss_query: Query<Entity, With<Boss>>,
+    boss_query: Query<Entity, (With<Boss>, Without<DeadBody>)>,
 
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
     mut boss_death_event: EventWriter<BossDeathEvent>,

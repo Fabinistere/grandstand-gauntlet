@@ -44,7 +44,8 @@ impl Plugin for PlayerPlugin {
                     .after(MySystems::DamageAnimation)
                     .after(MySystems::SoulShift),
                 )
-            .add_system(clean_up_dead_bodies.after(MySystems::PlayerDeath))
+            // TODO: move this system up (in characters)
+            .add_system(clean_up_dead_bodies.after(MySystems::PlayerDeath).after(MySystems::BossDeath))
             // Post Update needed cause depends on the DeadBody Filter which is added during the Update State
             .add_system_to_stage(CoreStage::PostUpdate, player_attack)
             // -- Movement --

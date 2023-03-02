@@ -41,10 +41,11 @@ impl Plugin for BossPlugin {
                 .label(MySystems::BossAttackHitboxActivation)
                 .after(boss_proximity_attack)
             )
-            .add_system(boss_death)
+            .add_system(boss_death.label(MySystems::BossDeath).after(MySystems::DamageAnimation))
             // .add_plugin(AggressionBossPlugin) 
             // -- Behavior --
             .add_system(backstroke_sensor)
+            .add_system(boss_actions)
             ;
     }
 }
@@ -109,6 +110,7 @@ fn setup_boss(
                 TimerMode::Once,
             )),
             BossBehavior::Chase,
+            BossActions(None),
             // -- Movement --
             MovementBundle {
                 speed: Speed::new(BOSS_SPEED),
@@ -262,7 +264,7 @@ fn setup_boss(
                         BossAttackFallenAngel,
                         // CollisionGroups::new(0b0100.into(), 0b0010.into()),
                         Sensor,
-                        Name::new("Attack Hitbox: Sensor - FallenAnegel"),
+                        Name::new("Attack Hitbox: Sensor - FallenAngel"),
                     ));
                 });
         });
