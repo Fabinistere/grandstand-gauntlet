@@ -284,7 +284,7 @@ fn bam_the_player(
 
     mut damage_hit_event: EventWriter<DamageHitEvent>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(KeyCode::F) {
         if let Ok(player) = player_query.get_single() {
             info!("Bam dans ta gueule !");
             for attack_hitbox in boss_attack_hitbox.iter() {
@@ -361,7 +361,7 @@ fn damage_hit(
     mut target_query: Query<&mut Hp, (Without<Invulnerable>, Without<SoulShifting>, Without<CrowdMember>)>,
     
     player_query: Query<Entity, With<Player>>,
-    boss_query: Query<Entity, With<Boss>>,
+    boss_query: Query<Entity, (With<Boss>, Without<DeadBody>)>,
 
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
     mut boss_death_event: EventWriter<BossDeathEvent>,

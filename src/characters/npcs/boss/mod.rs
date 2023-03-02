@@ -13,7 +13,7 @@ use crate::{
         npcs::boss::{
             behaviors::*,
             aggression::{
-                BossDeathEvent, boss_death, boss_attack_hitbox_activation, boss_proximity_attack, display_boss_hp
+                BossDeathEvent, boss_death, boss_attack_hitbox_activation, boss_proximity_attack
             },
             movement::{stare_player, chase_player}
         }
@@ -32,8 +32,6 @@ impl Plugin for BossPlugin {
             // -- Movement --
             .add_system(chase_player)
             .add_system(stare_player)
-            // -- UI --
-            .add_system(display_boss_hp)
             // -- Aggression --
             .add_system(boss_proximity_attack)
             .add_system(
@@ -41,10 +39,11 @@ impl Plugin for BossPlugin {
                 .label(MySystems::BossAttackHitboxActivation)
                 .after(boss_proximity_attack)
             )
-            .add_system(boss_death)
+            .add_system(boss_death.label(MySystems::BossDeath).after(MySystems::DamageAnimation))
             // .add_plugin(AggressionBossPlugin) 
             // -- Behavior --
             .add_system(backstroke_sensor)
+            .add_system(boss_actions)
             ;
     }
 }
@@ -109,6 +108,7 @@ fn setup_boss(
                 TimerMode::Once,
             )),
             BossBehavior::Chase,
+            BossActions(None),
             // -- Movement --
             MovementBundle {
                 speed: Speed::new(BOSS_SPEED),
@@ -262,7 +262,7 @@ fn setup_boss(
                         BossAttackFallenAngel,
                         // CollisionGroups::new(0b0100.into(), 0b0010.into()),
                         Sensor,
-                        Name::new("Attack Hitbox: Sensor - FallenAnegel"),
+                        Name::new("Attack Hitbox: Sensor - FallenAngel"),
                     ));
                 });
         });

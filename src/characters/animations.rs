@@ -104,6 +104,7 @@ pub fn jump_frame_character_state(
     >,
 ) {
     for (indices, mut sprite, character_state) in &mut query {
+        // info!("{:?}", &character_state);
         let (first_indice, _, _) = &indices[&character_state];
         // Jump directly to the correct frame when the state has changed
         sprite.index = *first_indice;

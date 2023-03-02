@@ -5,7 +5,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        aggression::{AttackCooldown, AttackHitbox, AttackSensor, Hp},
+        aggression::{AttackCooldown, AttackHitbox, AttackSensor, DeadBody, Invulnerable},
         // Invulnerable,
         animations::CharacterState,
         movement::CharacterHitbox,
@@ -41,18 +41,6 @@ use super::{
 ///     - action
 pub struct BossDeathEvent;
 
-/// DEBUG: TEMPORARY
-///
-/// The Boss' hp won't be displayed.
-/// The current phase will indicate, as well as the clouds ?
-pub fn display_boss_hp(
-    bleeding_boss_query: Query<&Hp, (With<Boss>, Or<(Added<Hp>, Changed<Hp>)>)>,
-) {
-    if let Ok(boss_hp) = bleeding_boss_query.get_single() {
-        println!("boss's hp: {}/{}", boss_hp.current, boss_hp.max);
-    }
-}
-
 /// When the player enters the sensor
 /// The boss (if in ChaseBehavior) starts to attack them
 ///
@@ -83,7 +71,7 @@ pub fn boss_proximity_attack(
     >,
     player_sensor_query: Query<(Entity, &Parent), (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
-    mut boss_query: Query<(&mut CharacterState, &BossBehavior), With<Boss>>,
+    mut boss_query: Query<(&mut CharacterState, &BossBehavior), (With<Boss>, Without<DeadBody>)>,
 ) {
     // Phase 1 - Sensor
     if let Ok((attack_sensor, boss)) = boss_proximity_sensor_query.get_single() {
@@ -119,7 +107,10 @@ pub fn boss_proximity_attack(
 pub fn boss_attack_hitbox_activation(
     mut commands: Commands,
 
-    boss_query: Query<(&CharacterState, &Children, &Name), (Changed<CharacterState>, With<Boss>)>,
+    boss_query: Query<
+        (&CharacterState, &Children, &Name),
+        (Changed<CharacterState>, With<Boss>, Without<DeadBody>),
+    >,
     parent_hitbox_position_query: Query<(Entity, &Children), With<AttackSensor>>,
 
     // All Kind of Boss Attack
@@ -200,6 +191,16 @@ pub fn boss_attack_hitbox_activation(
 /// TODO: End of the Game
 pub fn boss_death(
     mut boss_death_event: EventReader<BossDeathEvent>,
+    mut commands: Commands,
+    mut boss_query: Query<
+        (
+            Entity,
+            &mut Velocity,
+            &mut CharacterState,
+            &mut TextureAtlasSprite,
+        ),
+        (With<Boss>, Without<DeadBody>),
+    >,
     possesion_count: Res<PossesionCount>,
 ) {
     for _ in boss_death_event.iter() {
@@ -209,6 +210,24 @@ pub fn boss_death(
             "CONGRATS ! You Killed the Hero with only {} spectators sacrifies",
             possesion_count.0
         );
-        // IDEA: The final possesion... (see the bible (by olf))
+
+        if let Ok((boss, mut rb_vel, mut state, mut sprite)) = boss_query.get_single_mut() {
+            // Death Anim
+            *state = CharacterState::Dead;
+            rb_vel.linvel = Vect::ZERO;
+            commands
+                .entity(boss)
+                .insert((
+                    DeadBody,
+                    // AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Once)),
+                ))
+                // .remove::<Boss>()
+                .remove::<Invulnerable>();
+
+            const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
+            sprite.color = WHITE;
+
+            // IDEA: The final possesion... (see the bible (by olf))
+        }
     }
 }

@@ -23,7 +23,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app.add_event::<CreatePlayerEvent>()
+        app .add_event::<CreatePlayerEvent>()
             .add_event::<PlayerDeathEvent>()
             .insert_resource(PossesionCount(1))
             .add_startup_system(spawn_first_player)
@@ -35,7 +35,6 @@ impl Plugin for PlayerPlugin {
             // -- Camera --
             .add_system(camera_follow.after(MySystems::NewBeginning))
             // -- Aggression --
-            .add_system(display_player_hp)
             .add_system(
                 player_death_event
                     .label(MySystems::PlayerDeath)
@@ -44,7 +43,8 @@ impl Plugin for PlayerPlugin {
                     .after(MySystems::DamageAnimation)
                     .after(MySystems::SoulShift),
                 )
-            .add_system(clean_up_dead_bodies.after(MySystems::PlayerDeath))
+            // TODO: move this system up (in characters)
+            .add_system(clean_up_dead_bodies.after(MySystems::PlayerDeath).after(MySystems::BossDeath))
             // Post Update needed cause depends on the DeadBody Filter which is added during the Update State
             .add_system_to_stage(CoreStage::PostUpdate, player_attack)
             // -- Movement --
@@ -61,6 +61,9 @@ pub struct PossesionCount(pub i32);
 
 #[derive(Component)]
 pub struct PlayerHitbox;
+
+#[derive(Component)]
+pub struct PlayerAttack;
 
 #[derive(Debug, Deref, DerefMut)]
 pub struct CreatePlayerEvent(pub Entity);
@@ -122,14 +125,6 @@ fn player_attack(
             rb_vel.linvel = Vect::ZERO;
             attack_charge.timer.reset();
         }
-    }
-}
-
-fn display_player_hp(
-    bleeding_player_query: Query<&Hp, (With<Player>, Or<(Added<Hp>, Changed<Hp>)>)>,
-) {
-    if let Ok(player_hp) = bleeding_player_query.get_single() {
-        println!("player's hp: {}/{}", player_hp.current, player_hp.max);
     }
 }
 
@@ -407,6 +402,7 @@ fn create_player(
                             ),
                             Transform::default(),
                             AttackHitbox(10),
+                            PlayerAttack,
                             Sensor,
                             Name::new("Attack Hitbox: Sensor Bottom Whip"),
                         ));
@@ -432,6 +428,7 @@ fn create_player(
                             ),
                             Transform::default(),
                             AttackHitbox(10),
+                            PlayerAttack,
                             Sensor,
                             Name::new("Attack Hitbox: Sensor Front Ball"),
                         ));

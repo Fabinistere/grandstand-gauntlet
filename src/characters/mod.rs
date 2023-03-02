@@ -8,15 +8,15 @@ use bevy::prelude::*;
 
 use crate::{
     characters::{
-        aggression::AggressionPlugin, animations::animate_character,
+        aggression::{AggressionPlugin, DeadBody},
+        movement::{dash_timer, hyper_dash_timer, player_dash},
+        animations::animate_character,
         animations::jump_frame_character_state,
         npcs::NPCsPlugin,
         player::PlayerPlugin,
     },
     locations::run_if_the_player_is_not_frozen,
 };
-
-use self::movement::{dash_timer, hyper_dash_timer, player_dash};
 
 
 pub struct CharacterPlugin;
@@ -50,9 +50,6 @@ impl Plugin for CharacterPlugin {
             ;
     }
 }
-
-#[derive(Component)]
-pub struct DeadBody;
 
 #[derive(Component)]
 pub struct Freeze;
