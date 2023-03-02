@@ -5,6 +5,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
+        aggression::DeadBody,
         movement::CharacterHitbox,
         player::{Player, PlayerHitbox},
     },
@@ -14,6 +15,10 @@ use crate::{
 use super::Boss;
 
 // -- Boss Behaviors --
+
+/// Groups all Boss' Sensors
+#[derive(Component)]
+pub struct BossActions(pub Option<Vec<BossAction>>);
 
 #[derive(Default, Debug, Clone, Component, Eq, Inspectable, PartialEq)]
 pub enum BossBehavior {
@@ -36,6 +41,20 @@ pub enum BossBehavior {
     ///
     /// Player being too close to the boss
     NeedSomeSpace,
+}
+
+#[derive(Debug, Clone, Eq, Inspectable, PartialEq)]
+pub enum BossAction {
+    Wait(i32),
+    // -- Attacks --
+    Smash,
+    FeintSmash,
+    FallenAngel,
+    LaserRain,
+    // -- Movements --
+    Dash,
+    /// TP to x, should prefer the ²f32
+    Tp(i32),
 }
 
 // -- Behaviors Sensor --
@@ -83,7 +102,8 @@ pub fn backstroke_sensor(
     player_hitbox_query: Query<Entity, (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
     player_query: Query<(&Transform, &Velocity), With<Player>>,
-    mut boss_query: Query<(&mut BossBehavior, &Transform), With<Boss>>,
+    // &mut BossBehavior,
+    mut boss_query: Query<(&mut BossActions, &Transform), (With<Boss>, Without<DeadBody>)>,
 ) {
     for collision_event in collision_events.iter() {
         let entity_1 = collision_event.entities().0;
@@ -98,19 +118,41 @@ pub fn backstroke_sensor(
             ) {
                 (Ok(_), Err(_), Err(_), Ok(_)) | (Err(_), Ok(_), Ok(_), Err(_)) => {
                     let (player_transform, player_vel) = player_query.single();
-                    let (mut boss_behavior, boss_transform) = boss_query.single_mut();
-
-                    // The player is running away
-                    if (boss_transform.translation.x < player_transform.translation.x
-                        && player_vel.linvel.x < 0.)
-                        || (boss_transform.translation.x > player_transform.translation.x
-                            && player_vel.linvel.x > 0.)
-                    {
-                        *boss_behavior = BossBehavior::DashInAttack;
+                    // mut boss_behavior
+                    if let Ok((mut boss_actions, boss_transform)) = boss_query.get_single_mut() {
+                        // The player is running away
+                        if (boss_transform.translation.x < player_transform.translation.x
+                            && player_vel.linvel.x < 0.)
+                            || (boss_transform.translation.x > player_transform.translation.x
+                                && player_vel.linvel.x > 0.)
+                        {
+                            // *boss_behavior = BossBehavior::DashInAttack;
+                            // REFACTOR: prefer send a event to modify that
+                            match boss_actions.0 {
+                                Some(_) => continue,
+                                None => {
+                                    boss_actions.0 = Some(vec![BossAction::Dash, BossAction::Smash])
+                                }
+                            }
+                        }
                     }
                 }
                 _ => continue,
             }
+        }
+    }
+}
+
+pub fn boss_actions(
+    boss_query: Query<
+        (&BossActions, &Transform),
+        (With<Boss>, Changed<BossActions>, Without<DeadBody>),
+    >,
+) {
+    if let Ok((boss_actions, _boss_transform)) = boss_query.get_single() {
+        match &boss_actions.0 {
+            None => {}
+            Some(actions) => {}
         }
     }
 }
