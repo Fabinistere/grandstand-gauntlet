@@ -35,7 +35,6 @@ impl Plugin for PlayerPlugin {
             // -- Camera --
             .add_system(camera_follow.after(MySystems::NewBeginning))
             // -- Aggression --
-            .add_system(display_player_hp)
             .add_system(
                 player_death_event
                     .label(MySystems::PlayerDeath)
@@ -126,14 +125,6 @@ fn player_attack(
             rb_vel.linvel = Vect::ZERO;
             attack_charge.timer.reset();
         }
-    }
-}
-
-fn display_player_hp(
-    bleeding_player_query: Query<&Hp, (With<Player>, Or<(Added<Hp>, Changed<Hp>)>)>,
-) {
-    if let Ok(player_hp) = bleeding_player_query.get_single() {
-        println!("player's hp: {}/{}", player_hp.current, player_hp.max);
     }
 }
 

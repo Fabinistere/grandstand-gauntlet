@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::{
     characters::{
         aggression::{AttackHitbox, Hp},
+        npcs::boss::Boss,
         player::{Player, PlayerAttack},
     },
     constants::ui::*,
@@ -14,8 +15,11 @@ impl Plugin for UiPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
         app .add_startup_system(setup_ui)
-            .add_system(update_health)
             .add_system(triche_system)
+            // -- HP --
+            .add_system(update_health)
+            .add_system(display_player_hp)
+            .add_system(display_boss_hp)
             ;
     }
 }
@@ -95,6 +99,26 @@ fn update_health(
             ),
             text.sections[0].style.clone(),
         );
+    }
+}
+
+fn display_player_hp(
+    bleeding_player_query: Query<&Hp, (With<Player>, Or<(Added<Hp>, Changed<Hp>)>)>,
+) {
+    if let Ok(player_hp) = bleeding_player_query.get_single() {
+        println!("player's hp: {}/{}", player_hp.current, player_hp.max);
+    }
+}
+
+/// DEBUG: TEMPORARY
+///
+/// The Boss' hp won't be displayed.
+/// The current phase will indicate, as well as the clouds ?
+pub fn display_boss_hp(
+    bleeding_boss_query: Query<&Hp, (With<Boss>, Or<(Added<Hp>, Changed<Hp>)>)>,
+) {
+    if let Ok(boss_hp) = bleeding_boss_query.get_single() {
+        println!("boss's hp: {}/{}", boss_hp.current, boss_hp.max);
     }
 }
 
