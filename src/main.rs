@@ -41,6 +41,8 @@ pub enum MySystems {
     NewBeginning,
     /// End the dying past player
     PlayerDeath,
+    /// End the dying past boss
+    BossDeath,
 }
 
 #[rustfmt::skip]

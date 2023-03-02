@@ -5,7 +5,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        aggression::{AttackCooldown, AttackHitbox, AttackSensor, Hp},
+        aggression::{AttackCooldown, AttackHitbox, AttackSensor, DeadBody, Hp, Invulnerable},
         // Invulnerable,
         animations::CharacterState,
         movement::CharacterHitbox,
@@ -15,7 +15,10 @@ use crate::{
     constants::character::boss::BOSS_SMASH_COOLDOWN,
 };
 
-use super::{Boss, BossAttackFalleAngel, BossAttackSmash};
+use super::{
+    behaviors::{BossBehavior, BossSensor, ProximitySensor},
+    Boss, BossAttackFallenAngel, BossAttackSmash,
+};
 
 // pub struct AggressionBossPlugin;
 
@@ -23,15 +26,11 @@ use super::{Boss, BossAttackFalleAngel, BossAttackSmash};
 //     #[rustfmt::skip]
 //     fn build(&self, app: &mut App) {
 //         app .add_event::<BossAttackEvent>()
-//             .add_system(boss_close_detection)
+//             .add_system(boss_proximity_attack)
 //             .add_system(boss_attack_event_handler)
 //             ;
 //     }
 // }
-
-// DOC: move it up with and named it better
-#[derive(Component)]
-pub struct BossSensor;
 
 /// Happens when
 ///   - ???
@@ -55,59 +54,60 @@ pub fn display_boss_hp(
 }
 
 /// When the player enters the sensor
-/// The boss start to attack them
+/// The boss (if in ChaseBehavior) starts to attack them
 ///
 /// Send a Event to launch a attack when a entity enters the sensor
 /// and insert a timer to limit the number of attack while still in the sensor.
 ///
-/// Remove this timer (and behavior?) when leaving the sensor
-///
-/// ***IMPORTANT***:
-/// - when dying/tp the exit trigger of the sensor will not trigger
-/// Has to verify that the entity is nearby
-/// OR
-/// when tp/dying->soul shift the player become Invulnerable
-/// - If no player vulnerable, then remove the behavior
+/// Remove this timer when leaving the sensor
 ///
 /// # Note
 ///
-/// The boss should still attack while the player is invulnerable;
+/// The boss should still attacks while the player is invulnerable;
+/// And not depends on the `EventReader<CollisionEvent>` which only see enter and exit of a sensor.
+///
 /// For more depts: [Collision groups and solver groups](https://rapier.rs/docs/user_guides/bevy_plugin/colliders/#collision-groups-and-solver-groups)
-pub fn boss_close_detection(
+pub fn boss_proximity_attack(
     mut commands: Commands,
 
-    // mut collision_events: EventReader<CollisionEvent>,
     rapier_context: Res<RapierContext>,
 
-    boss_attack_sensor_query: Query<
+    boss_proximity_sensor_query: Query<
         (Entity, &Parent),
-        (With<Sensor>, With<BossSensor>, Without<AttackCooldown>),
+        (
+            With<Sensor>,
+            With<BossSensor>,
+            With<ProximitySensor>,
+            Without<AttackCooldown>,
+        ),
     >,
     player_sensor_query: Query<(Entity, &Parent), (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
-    mut attacker_query: Query<&mut CharacterState>,
+    mut boss_query: Query<(&mut CharacterState, &BossBehavior), (With<Boss>, Without<DeadBody>)>,
 ) {
     // Phase 1 - Sensor
-    if let Ok((attack_sensor, boss)) = boss_attack_sensor_query.get_single() {
+    if let Ok((attack_sensor, boss)) = boss_proximity_sensor_query.get_single() {
         if let Ok((player_sensor, _player)) = player_sensor_query.get_single() {
             // Phase 3 - Player TP proof
             if rapier_context.intersection_pair(attack_sensor, player_sensor) == Some(true) {
-                match attacker_query.get_mut(**boss) {
+                match boss_query.get_mut(**boss) {
                     // DEBUG: (in the start of the game) / Every time a entity spawns, log the name + current identifier
                     Err(e) => warn!("This entity: {:?} Cannot be animated: {:?}", **boss, e),
-                    Ok(mut state) => {
-                        *state = CharacterState::TransitionToCharge;
+                    Ok((mut state, behavior)) => {
+                        if *behavior == BossBehavior::Chase {
+                            *state = CharacterState::TransitionToCharge;
+
+                            // Phase 2 - Timer
+                            commands
+                                // REFACTOR: where the cooldown timer is placed
+                                .entity(attack_sensor) // **boss
+                                .insert(AttackCooldown(Timer::from_seconds(
+                                    BOSS_SMASH_COOLDOWN,
+                                    TimerMode::Once,
+                                )));
+                        }
                     }
                 }
-
-                // Phase 2 - Timer
-                commands
-                    // REFACTOR: Where the cooldown timer is placed
-                    .entity(attack_sensor) // **boss
-                    .insert(AttackCooldown(Timer::from_seconds(
-                        BOSS_SMASH_COOLDOWN,
-                        TimerMode::Once,
-                    )));
             }
         }
         // else { info!("No playerHitbox") }
@@ -119,14 +119,21 @@ pub fn boss_close_detection(
 pub fn boss_attack_hitbox_activation(
     mut commands: Commands,
 
-    boss_query: Query<(&CharacterState, &Children, &Name), (Changed<CharacterState>, With<Boss>)>,
+    boss_query: Query<
+        (&CharacterState, &Children, &Name),
+        (Changed<CharacterState>, With<Boss>, Without<DeadBody>),
+    >,
     parent_hitbox_position_query: Query<(Entity, &Children), With<AttackSensor>>,
 
     // All Kind of Boss Attack
     smash_hitbox_query: Query<Entity, (With<AttackHitbox>, With<BossAttackSmash>, With<Sensor>)>,
     fallen_angel_hitbox_query: Query<
         Entity,
-        (With<AttackHitbox>, With<BossAttackFalleAngel>, With<Sensor>),
+        (
+            With<AttackHitbox>,
+            With<BossAttackFallenAngel>,
+            With<Sensor>,
+        ),
     >,
 ) {
     for (character_state, children, _name) in boss_query.iter() {
@@ -196,6 +203,16 @@ pub fn boss_attack_hitbox_activation(
 /// TODO: End of the Game
 pub fn boss_death(
     mut boss_death_event: EventReader<BossDeathEvent>,
+    mut commands: Commands,
+    mut boss_query: Query<
+        (
+            Entity,
+            &mut Velocity,
+            &mut CharacterState,
+            &mut TextureAtlasSprite,
+        ),
+        (With<Boss>, Without<DeadBody>),
+    >,
     possesion_count: Res<PossesionCount>,
 ) {
     for _ in boss_death_event.iter() {
@@ -205,6 +222,24 @@ pub fn boss_death(
             "CONGRATS ! You Killed the Hero with only {} spectators sacrifies",
             possesion_count.0
         );
-        // IDEA: The final possesion... (see the bible (by olf))
+
+        if let Ok((boss, mut rb_vel, mut state, mut sprite)) = boss_query.get_single_mut() {
+            // Death Anim
+            *state = CharacterState::Dead;
+            rb_vel.linvel = Vect::ZERO;
+            commands
+                .entity(boss)
+                .insert((
+                    DeadBody,
+                    // AnimationTimer(Timer::from_seconds(FRAME_TIME, TimerMode::Once)),
+                ))
+                // .remove::<Boss>()
+                .remove::<Invulnerable>();
+
+            const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
+            sprite.color = WHITE;
+
+            // IDEA: The final possesion... (see the bible (by olf))
+        }
     }
 }

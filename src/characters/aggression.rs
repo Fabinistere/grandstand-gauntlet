@@ -7,15 +7,13 @@ use crate::{
     characters::{
         animations::CharacterState,
         movement::CharacterHitbox,
-        npcs::boss::{Boss, aggression::BossDeathEvent},
+        npcs::boss::{Boss, aggression::BossDeathEvent, BossAttack, behaviors::BossSensor},
         player::Player,
     },
     soul_shift::{SoulShiftEvent, SoulShifting},
     crowd::CrowdMember,
     MySystems
 };
-
-use super::npcs::boss::BossAttack;
 
 pub struct AggressionPlugin;
 
@@ -159,7 +157,7 @@ fn flip_attack_sensor(
 
     character_query: Query<&Children, Or<(With<Player>, With<Boss>)>>,
     // With<Sensor>, 
-    mut attack_sensor_query: Query<&mut Transform, With<AttackSensor>>,
+    mut attack_sensor_query: Query<&mut Transform, Or<(With<AttackSensor>, With<BossSensor>)>>,
 ) {
     for FlipAttackSensorEvent(character_to_flip) in flip_direction_event.iter() {
         match character_query.get(*character_to_flip) {
@@ -363,7 +361,7 @@ fn damage_hit(
     mut target_query: Query<&mut Hp, (Without<Invulnerable>, Without<SoulShifting>, Without<CrowdMember>)>,
     
     player_query: Query<Entity, With<Player>>,
-    boss_query: Query<Entity, With<Boss>>,
+    boss_query: Query<Entity, (With<Boss>, Without<DeadBody>)>,
 
     mut soul_shift_event: EventWriter<SoulShiftEvent>,
     mut boss_death_event: EventWriter<BossDeathEvent>,

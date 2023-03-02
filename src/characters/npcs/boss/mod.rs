@@ -1,8 +1,8 @@
 pub mod aggression;
+pub mod behaviors;
 mod movement;
 
 use bevy::{prelude::*, utils::HashMap};
-use bevy_inspector_egui::Inspectable;
 use bevy_rapier2d::prelude::*;
 
 use crate::{
@@ -11,16 +11,15 @@ use crate::{
         aggression::{Hp, AttackSensor, AttackHitbox, AttackCooldown},
         movement::{MovementBundle, Speed, CharacterHitbox},
         npcs::boss::{
+            behaviors::*,
             aggression::{
-                BossSensor, boss_attack_hitbox_activation, boss_close_detection, display_boss_hp
+                BossDeathEvent, boss_death, boss_attack_hitbox_activation, boss_proximity_attack, display_boss_hp
             },
             movement::{stare_player, chase_player}
         }
     },
-    constants::character::{CHAR_POSITION, boss::*, FRAME_TIME}, MySystems,
+    constants::character::{CHAR_POSITION, boss::{*, behaviors_sensors::*}, FRAME_TIME}, MySystems,
 };
-
-use self::aggression::{boss_death, BossDeathEvent};
 
 pub struct BossPlugin;
 
@@ -36,14 +35,17 @@ impl Plugin for BossPlugin {
             // -- UI --
             .add_system(display_boss_hp)
             // -- Aggression --
-            .add_system(boss_close_detection)
+            .add_system(boss_proximity_attack)
             .add_system(
                 boss_attack_hitbox_activation
                 .label(MySystems::BossAttackHitboxActivation)
-                .after(boss_close_detection)
+                .after(boss_proximity_attack)
             )
-            .add_system(boss_death)
+            .add_system(boss_death.label(MySystems::BossDeath).after(MySystems::DamageAnimation))
             // .add_plugin(AggressionBossPlugin) 
+            // -- Behavior --
+            .add_system(backstroke_sensor)
+            .add_system(boss_actions)
             ;
     }
 }
@@ -60,40 +62,7 @@ pub struct BossAttack;
 pub struct BossAttackSmash;
 
 #[derive(Component)]
-pub struct BossAttackFalleAngel;
-
-// -- Behaviors Sensor -- 
-
-#[derive(Component)]
-pub struct BossMovementSensor;
-
-// -- Boss Behaviors --
-
-#[derive(Default, Debug, Clone, Component, Eq, Inspectable, PartialEq)]
-pub enum BossBehavior {
-    #[default]
-    Chase, 
-    /// # Trigger
-    /// 
-    /// The player runs away, after leaving the proximity sensor
-    /// (negative movement velocity % Boss)
-    DashInAttack,
-    /// Tp in front/behind alternately, each tp is followed by a fake Smash (just the transition)
-    /// 
-    /// # Trigger
-    /// 
-    /// x successed paries
-    CounterPary,
-    /// Dash out, Dash in, Smash Attack
-    /// 
-    /// # Trigger
-    /// 
-    /// Player being too close to the boss
-    NeedSomeSpace,
-}
-
-// #[derive(Component)]
-// pub struct ChaseBehavior;
+pub struct BossAttackFallenAngel;
 
 fn setup_boss(
     mut commands: Commands,
@@ -141,6 +110,7 @@ fn setup_boss(
                 TimerMode::Once,
             )),
             BossBehavior::Chase,
+            BossActions(None),
             // -- Movement --
             MovementBundle {
                 speed: Speed::new(BOSS_SPEED),
@@ -160,33 +130,61 @@ fn setup_boss(
                 Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
                 CharacterHitbox,
                 Sensor,
-                // ActiveEvents::COLLISION_EVENTS,
                 Name::new("Boss Hitbox"),
             ));
 
-            // Boss Movement Range Sensor
-            parent.spawn((
-                Collider::ball(60.),
-                Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
-                BossMovementSensor,
-                Sensor,
-                Name::new("Boss Movement Range"),
-            ));
+        // -- Sensors --
+
+            // // Boss Movement Range Sensor: Chase Behavior
+            // parent.spawn((
+            //     Collider::ball(60.),
+            //     Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
+            //     Name::new("Boss Movement Range"),
+            //     Sensor,
+            //     BossSensor,
+            //     BossMovementSensor,
+            // ));
 
             // Boss Attack Range Sensor: Proximity sensor
             parent.spawn((
                 // TODO: Bigger ?
                 Collider::ball(BOSS_RANGE_HITBOX_SIZE),
                 Transform::from_translation(BOSS_HITBOX_OFFSET_Y.into()),
+                Name::new("Proximity Sensor: Smash"),
+                // -- Standard --
                 BossSensor,
                 Sensor,
-                // TODO: removable Component ? (ActiveEvents is used by user's event handler)
-                ActiveEvents::COLLISION_EVENTS,
-                Name::new("Boss Attack Range"),
+                // -- Custom --
+                ProximitySensor,
             ));
+
+            // Traitor moves Sensor: Backstroke Dash
+            parent
+                .spawn((
+                    SpatialBundle {
+                        transform: Transform::from_translation(BACKSTROKE_DASH_POS.into()),
+                        ..default()
+                    },
+                    RigidBody::Dynamic,
+                    Name::new("Parent - Backstroke Dash"),
+                    BossSensor,
+                ))
+                .with_children(|parent| {
+                    // This hierarchy is used to allow modification on the Sensor's transform
+                    parent.spawn((
+                        Collider::cuboid(
+                            BACKSTROKE_DASH_SENSOR.0,
+                            BACKSTROKE_DASH_SENSOR.1,
+                        ),
+                        Transform::default(),
+                        Name::new("Backstroke Dash Sensor"),
+                        Sensor,
+                        BackstrokeDashSensor,
+                    ));
+                });
             
 
-            // -- Attack Hitbox --
+        // -- Attack Hitbox --
             // Smash
             parent
                 .spawn((
@@ -194,9 +192,9 @@ fn setup_boss(
                         transform: Transform::from_translation(FRONT_SMASH_POS_TOP.into()),
                         ..default()
                     },
-                    AttackSensor,
                     RigidBody::Dynamic,
                     Name::new("Parent - Smash Top"),
+                    AttackSensor,
                 ))
                 .with_children(|parent| {
                     // Front
@@ -220,9 +218,9 @@ fn setup_boss(
                         transform: Transform::from_translation(FRONT_SMASH_POS_BOTTOM.into()),
                         ..default()
                     },
-                    AttackSensor,
                     RigidBody::Dynamic,
                     Name::new("Parent - Smash Bot"),
+                    AttackSensor,
                 ))
                 .with_children(|parent| {
                     // Front
@@ -248,9 +246,9 @@ fn setup_boss(
                         transform: Transform::from_translation(FALLEN_ANGEL_POS.into()),
                         ..default()
                     },
-                    AttackSensor,
                     RigidBody::Dynamic,
                     Name::new("Parent - FallenAngel"),
+                    AttackSensor,
                 ))
                 .with_children(|parent| {
                     // Front
@@ -263,10 +261,10 @@ fn setup_boss(
                         Transform::default(),
                         AttackHitbox(10),
                         BossAttack,
-                        BossAttackFalleAngel,
+                        BossAttackFallenAngel,
                         // CollisionGroups::new(0b0100.into(), 0b0010.into()),
                         Sensor,
-                        Name::new("Attack Hitbox: Sensor - FallenAnegel"),
+                        Name::new("Attack Hitbox: Sensor - FallenAngel"),
                     ));
                 });
         });
