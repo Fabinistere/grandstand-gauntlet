@@ -5,7 +5,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        aggression::{AttackCooldown, AttackHitbox, AttackSensor, DeadBody, Hp, Invulnerable},
+        aggression::{AttackCooldown, AttackHitbox, AttackSensor, DeadBody, Invulnerable},
         // Invulnerable,
         animations::CharacterState,
         movement::CharacterHitbox,
@@ -40,18 +40,6 @@ use super::{
 ///   - ???
 ///     - action
 pub struct BossDeathEvent;
-
-/// DEBUG: TEMPORARY
-///
-/// The Boss' hp won't be displayed.
-/// The current phase will indicate, as well as the clouds ?
-pub fn display_boss_hp(
-    bleeding_boss_query: Query<&Hp, (With<Boss>, Or<(Added<Hp>, Changed<Hp>)>)>,
-) {
-    if let Ok(boss_hp) = bleeding_boss_query.get_single() {
-        println!("boss's hp: {}/{}", boss_hp.current, boss_hp.max);
-    }
-}
 
 /// When the player enters the sensor
 /// The boss (if in ChaseBehavior) starts to attack them

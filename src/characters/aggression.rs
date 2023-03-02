@@ -284,7 +284,7 @@ fn bam_the_player(
 
     mut damage_hit_event: EventWriter<DamageHitEvent>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(KeyCode::F) {
         if let Ok(player) = player_query.get_single() {
             info!("Bam dans ta gueule !");
             for attack_hitbox in boss_attack_hitbox.iter() {
