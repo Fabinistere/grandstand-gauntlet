@@ -103,3 +103,11 @@ pub mod crowd {
     pub const CROWD_Y: f32 = -55.0;
     pub const CROWD_Z: f32 = 2.5;
 }
+
+pub mod ui {
+    use bevy::prelude::Color;
+
+    pub const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+    pub const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+    pub const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+}

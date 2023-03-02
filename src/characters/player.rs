@@ -23,7 +23,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app.add_event::<CreatePlayerEvent>()
+        app .add_event::<CreatePlayerEvent>()
             .add_event::<PlayerDeathEvent>()
             .insert_resource(PossesionCount(1))
             .add_startup_system(spawn_first_player)
@@ -62,6 +62,9 @@ pub struct PossesionCount(pub i32);
 
 #[derive(Component)]
 pub struct PlayerHitbox;
+
+#[derive(Component)]
+pub struct PlayerAttack;
 
 #[derive(Debug, Deref, DerefMut)]
 pub struct CreatePlayerEvent(pub Entity);
@@ -408,6 +411,7 @@ fn create_player(
                             ),
                             Transform::default(),
                             AttackHitbox(10),
+                            PlayerAttack,
                             Sensor,
                             Name::new("Attack Hitbox: Sensor Bottom Whip"),
                         ));
@@ -433,6 +437,7 @@ fn create_player(
                             ),
                             Transform::default(),
                             AttackHitbox(10),
+                            PlayerAttack,
                             Sensor,
                             Name::new("Attack Hitbox: Sensor Front Ball"),
                         ));

@@ -1,11 +1,22 @@
-use crate::characters::{aggression::Hp, player::Player};
 use bevy::prelude::*;
+
+use crate::{
+    characters::{
+        aggression::{AttackHitbox, Hp},
+        player::{Player, PlayerAttack},
+    },
+    constants::ui::*,
+};
 
 pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
+    #[rustfmt::skip]
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup_ui).add_system(update_health);
+        app .add_startup_system(setup_ui)
+            .add_system(update_health)
+            .add_system(triche_system)
+            ;
     }
 }
 
@@ -34,6 +45,41 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         )
         .insert(HealthText);
+
+    commands
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    size: Size::new(Val::Px(200.), Val::Px(65.)),
+                    // center button
+                    margin: UiRect::all(Val::Auto),
+                    // horizontally center child text
+                    justify_content: JustifyContent::Center,
+                    // vertically center child text
+                    align_items: AlignItems::Center,
+                    position: UiRect {
+                        right: Val::Percent(41.),
+                        top: Val::Percent(-44.),
+                        ..default()
+                    },
+                    ..default()
+                },
+                background_color: NORMAL_BUTTON.into(),
+                ..default()
+            },
+            Name::new("Triche Button"),
+            // HackButton
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "LA TRICHE",
+                TextStyle {
+                    font: asset_server.load("fonts/dpcomic.ttf"),
+                    font_size: 40.,
+                    color: Color::rgb(0.9, 0.9, 0.9),
+                },
+            ));
+        });
 }
 
 fn update_health(
@@ -49,5 +95,40 @@ fn update_health(
             ),
             text.sections[0].style.clone(),
         );
+    }
+}
+
+fn triche_system(
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor, &Children),
+        (Changed<Interaction>, With<Button>),
+    >,
+
+    mut player_attack: Query<&mut AttackHitbox, With<PlayerAttack>>,
+
+    mut text_query: Query<&mut Text>,
+) {
+    for (interaction, mut color, children) in &mut interaction_query {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        match *interaction {
+            Interaction::Clicked => {
+                info!("+100");
+                // +100dmg to the player
+                for mut attack_hitbox in player_attack.iter_mut() {
+                    attack_hitbox.0 += 100
+                }
+
+                text.sections[0].value = String::from("LA TRONCHE");
+                *color = PRESSED_BUTTON.into();
+            }
+            Interaction::Hovered => {
+                text.sections[0].value = String::from("+100dmg");
+                *color = HOVERED_BUTTON.into();
+            }
+            Interaction::None => {
+                text.sections[0].value = String::from("LA TRICHE");
+                *color = NORMAL_BUTTON.into();
+            }
+        }
     }
 }
