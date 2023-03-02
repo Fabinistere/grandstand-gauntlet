@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use bevy_inspector_egui::{RegisterInspectable, WorldInspectorPlugin};
 
 use crate::characters::{
-    aggression::Hp, animations::CharacterState, movement::Speed, npcs::boss::BossBehavior,
+    aggression::Hp, animations::CharacterState, movement::Speed,
+    npcs::boss::behaviors::BossBehavior,
 };
 
 pub struct DebugPlugin;

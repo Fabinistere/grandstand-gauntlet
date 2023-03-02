@@ -8,7 +8,9 @@ use bevy::prelude::*;
 
 use crate::{
     characters::{
-        aggression::AggressionPlugin, animations::animate_character,
+        aggression::{AggressionPlugin, DeadBody},
+        movement::{dash_timer, hyper_dash_timer, player_dash},
+        animations::animate_character,
         animations::jump_frame_character_state,
         npcs::NPCsPlugin,
         player::PlayerPlugin,
@@ -28,12 +30,11 @@ impl Plugin for CharacterPlugin {
             .add_plugin(NPCsPlugin)
             .add_plugin(PlayerPlugin)
             .add_plugin(AggressionPlugin)
+            .add_system(dash_timer)
+            .add_system(player_dash)
+            .add_system(hyper_dash_timer)
             // -- Animation --
-            .add_system_set(
-                SystemSet::new()
-                    .with_run_criteria(run_if_the_player_is_not_frozen)
-                    .with_system(move_dead_bodies)
-            )
+            .add_system(move_dead_bodies.with_run_criteria(run_if_the_player_is_not_frozen))
             // CoreStage::Last (after player_death_event and player_attack player_movement) but should be fine
             .add_system_to_stage(
                 // ensure that the changes in each CharacterPhase are made
@@ -51,12 +52,6 @@ impl Plugin for CharacterPlugin {
 }
 
 #[derive(Component)]
-pub struct Invulnerable;
-
-#[derive(Component)]
-pub struct DeadBody;
-
-#[derive(Component)]
 pub struct Freeze;
 
 /// REFACTOR: Parallax movement on static entities
@@ -72,7 +67,7 @@ fn move_dead_bodies(
             || keyboard_input.pressed(KeyCode::Left);
 
         let dir = right as i8 - left as i8;
-        const SPEED: f32 = 5.;
+        const SPEED: f32 = 25.;
 
         transform.translation.x += -dir as f32 * SPEED * time.delta_seconds();
     }

@@ -3,10 +3,10 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        aggression::FlipAttackSensorEvent,
+        aggression::{DeadBody, FlipAttackSensorEvent},
         animations::CharacterState,
         movement::Speed,
-        npcs::boss::{Boss, BossBehavior},
+        npcs::boss::{behaviors::BossBehavior, Boss},
         player::Player,
         Freeze,
     },
@@ -16,35 +16,36 @@ use crate::{
 pub fn stare_player(
     mut boss_query: Query<
         (Entity, &mut TextureAtlasSprite, &Transform, &CharacterState),
-        With<Boss>,
+        (With<Boss>, Without<DeadBody>),
     >,
     player_query: Query<&Transform, (With<Player>, Without<CrowdMember>)>,
     mut flip_direction_event: EventWriter<FlipAttackSensorEvent>,
 ) {
-    let (boss, mut boss_sprite, boss_transform, boss_state) = boss_query.single_mut();
-    let player_transform = player_query.single();
+    if let Ok((boss, mut boss_sprite, boss_transform, boss_state)) = boss_query.get_single_mut() {
+        let player_transform = player_query.single();
 
-    // MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
-    // ^^^^^------ With Dash/Death TP for example
+        // MUST-HAVE - Disable turn/movement when the boss attack (avoid spinning attack when passing behind the boss)
+        // ^^^^^------ With Dash/Death TP for example
 
-    // If boss is attacking, don't allow them to flip
-    if *boss_state == CharacterState::TransitionToCharge
-        || *boss_state == CharacterState::Attack
-        // || *boss_state == CharacterState::Charge
-        || *boss_state == CharacterState::SecondAttack
-        || *boss_state == CharacterState::ChargedAttack
-    {
-        return;
+        // If boss is attacking, don't allow them to flip
+        if *boss_state == CharacterState::TransitionToCharge
+            || *boss_state == CharacterState::Attack
+            // || *boss_state == CharacterState::Charge
+            || *boss_state == CharacterState::SecondAttack
+            || *boss_state == CharacterState::ChargedAttack
+        {
+            return;
+        }
+
+        let current_flip = boss_transform.translation.x > player_transform.translation.x;
+
+        // Flip their sensors
+        if boss_sprite.flip_x != current_flip {
+            flip_direction_event.send(FlipAttackSensorEvent(boss));
+        }
+        // Flip their sprite
+        boss_sprite.flip_x = current_flip;
     }
-
-    let current_flip = boss_transform.translation.x > player_transform.translation.x;
-
-    // Flip their sensors
-    if boss_sprite.flip_x != current_flip {
-        flip_direction_event.send(FlipAttackSensorEvent(boss));
-    }
-    // Flip their sprite
-    boss_sprite.flip_x = current_flip;
 }
 
 /// # Note
@@ -62,7 +63,7 @@ pub fn chase_player(
             &mut Velocity,
             &BossBehavior,
         ),
-        With<Boss>,
+        (With<Boss>, Without<DeadBody>),
     >,
     player_query: Query<&Transform, (With<Player>, Without<CrowdMember>)>,
     time: Res<Time>,

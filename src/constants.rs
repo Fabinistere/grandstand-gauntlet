@@ -73,6 +73,13 @@ pub mod character {
         pub const BOSS_RANGE_HITBOX_SIZE: f32 = 40.;
         pub const BOSS_HITBOX_OFFSET_Y: (f32, f32, f32) = (0., 5., 0.);
 
+        pub mod attack_hitbox {}
+
+        pub mod behaviors_sensors {
+            pub const BACKSTROKE_DASH_POS: (f32, f32, f32) = (90., -20., 0.);
+            pub const BACKSTROKE_DASH_SENSOR: (f32, f32) = (15., 60.);
+        }
+
         // -- Animation --
         pub const BOSS_IDLE_FRAMES: (usize, usize, CharacterState) = (0, 4, CharacterState::Idle);
         pub const BOSS_RUN_FRAMES: (usize, usize, CharacterState) = (5, 10, CharacterState::Idle);

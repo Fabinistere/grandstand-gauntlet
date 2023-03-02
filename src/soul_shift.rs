@@ -3,10 +3,9 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     characters::{
-        aggression::Hp,
+        aggression::{DeadBody, Hp},
         // animations::CharacterState,
         player::{CreatePlayerEvent, Player, PlayerDeathEvent},
-        DeadBody,
     },
     constants::character::CHAR_POSITION,
     crowd::CrowdMember,
