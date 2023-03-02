@@ -113,7 +113,7 @@ pub fn player_dash(
     player_query: Query<Entity, (With<Player>, Without<DashTimer>)>,
 ) {
     if let Ok(player) = player_query.get_single() {
-        if keyboard_input.just_pressed(KeyCode::F) {
+        if keyboard_input.just_pressed(KeyCode::Space) {
             info!("DAAASH !!");
             commands.entity(player).insert((
                 DashTimer(Timer::from_seconds(0.2, TimerMode::Once)),
@@ -121,7 +121,7 @@ pub fn player_dash(
             ));
         }
         // cost: 10hp (cause of bam_the_player)
-        else if keyboard_input.just_pressed(KeyCode::Space) {
+        else if keyboard_input.just_pressed(KeyCode::F) {
             info!("HYPEEEEEEEEEER DAAASH !!");
             commands.entity(player).insert((
                 HyperDashTimer(Timer::from_seconds(0.5, TimerMode::Once)),

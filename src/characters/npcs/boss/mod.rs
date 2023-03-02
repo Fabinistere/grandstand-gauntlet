@@ -13,7 +13,7 @@ use crate::{
         npcs::boss::{
             behaviors::*,
             aggression::{
-                BossDeathEvent, boss_death, boss_attack_hitbox_activation, boss_proximity_attack, display_boss_hp
+                BossDeathEvent, boss_death, boss_attack_hitbox_activation, boss_proximity_attack
             },
             movement::{stare_player, chase_player}
         }
@@ -32,8 +32,6 @@ impl Plugin for BossPlugin {
             // -- Movement --
             .add_system(chase_player)
             .add_system(stare_player)
-            // -- UI --
-            .add_system(display_boss_hp)
             // -- Aggression --
             .add_system(boss_proximity_attack)
             .add_system(
