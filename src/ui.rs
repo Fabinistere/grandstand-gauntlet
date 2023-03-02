@@ -122,6 +122,9 @@ pub fn display_boss_hp(
     }
 }
 
+// IDEA: polish - Poping stats up and hp changes
+// (usefull for every combat ever)
+
 fn triche_system(
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor, &Children),
