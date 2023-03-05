@@ -16,6 +16,7 @@ use crate::{
         player::PlayerPlugin,
     },
     locations::run_if_the_player_is_not_frozen,
+    MySystems,
 };
 
 
@@ -40,12 +41,13 @@ impl Plugin for CharacterPlugin {
                 // ensure that the changes in each CharacterPhase are made
                 CoreStage::PostUpdate,
                 jump_frame_character_state
-                    .before(animate_character)
+                    .before(MySystems::Animation)
                     
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 animate_character
+                    .label(MySystems::Animation)
             )
             ;
     }

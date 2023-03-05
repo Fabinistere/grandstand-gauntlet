@@ -6,6 +6,8 @@ use crate::{
     crowd::CrowdMember,
 };
 
+use super::npcs::boss::behaviors::{ActionCompletedEvent, BossAction, BossActions};
+
 #[derive(Default, Debug, Clone, Component, Eq, Hash, Inspectable, PartialEq)]
 pub enum CharacterState {
     #[default]
@@ -16,6 +18,7 @@ pub enum CharacterState {
     TransitionToCharge,
     Charge,
     Run,
+    Dash,
     Hit,
     Dead,
 }
@@ -51,6 +54,9 @@ pub fn animate_character(
         ),
         Or<(With<Player>, With<Boss>, With<CrowdMember>, With<DeadBody>)>,
     >,
+
+    boss_actions_query: Query<&BossActions>,
+    mut action_completed_event: EventWriter<ActionCompletedEvent>,
 ) {
     for (
         character,
@@ -79,6 +85,29 @@ pub fn animate_character(
                 if *character_state == CharacterState::Dead {
                     commands.entity(character).remove::<AnimationTimer>();
                 } else {
+                    // --- Boss AI ---
+                    if let Ok(boss_actions) = boss_actions_query.get(character) {
+                        match &boss_actions.0 {
+                            None => continue,
+                            Some(actions) => {
+                                // shouldn't crash
+                                match actions[0] {
+                                    BossAction::Smash => {
+                                        if *character_state == CharacterState::Attack {
+                                            action_completed_event.send(ActionCompletedEvent);
+                                        }
+                                    }
+                                    BossAction::FallenAngel => {
+                                        if *character_state == CharacterState::SecondAttack {
+                                            action_completed_event.send(ActionCompletedEvent);
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+
                     // starting on the start frame of the 'new' phase
                     sprite.index = indices[next_phase].0;
                     // update state
@@ -88,8 +117,8 @@ pub fn animate_character(
                 sprite.index = sprite.index + 1
             } else {
                 warn!("anim limit reached: {}", name);
-                // *character_state = CharacterState::Dead;
-                commands.entity(character).remove::<AnimationTimer>();
+                // commands.entity(character).remove::<AnimationTimer>();
+                sprite.index = indices[next_phase].0;
             }
         }
     }

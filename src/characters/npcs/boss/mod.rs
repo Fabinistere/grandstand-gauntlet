@@ -28,6 +28,7 @@ impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
         app 
             .add_event::<BossDeathEvent>()
+            .add_event::<ActionCompletedEvent>()
             .add_startup_system(setup_boss)
             // -- Movement --
             .add_system(chase_player)
@@ -43,7 +44,14 @@ impl Plugin for BossPlugin {
             // .add_plugin(AggressionBossPlugin) 
             // -- Behavior --
             .add_system(backstroke_sensor)
+            // boss_actions catches changes made by the fn *boss_actions_completed*()
+            // `If your system only runs sometimes (such as with states or run criteria), you do ***not*** have to worry about missing changes.`
+            // ^^^--- From [Change Detection](https://bevy-cheatbook.github.io/programming/change-detection.html)
             .add_system(boss_actions)
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                boss_actions_completed.after(MySystems::Animation)
+            )
             ;
     }
 }

@@ -3,20 +3,16 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::{
-    characters::{
-        aggression::{AttackCooldown, AttackHitbox, AttackSensor, DeadBody, Invulnerable},
-        // Invulnerable,
-        animations::CharacterState,
-        movement::CharacterHitbox,
-        player::{PlayerHitbox, PossesionCount},
-    },
-    // collisions::CollisionEventExt,
-    constants::character::boss::BOSS_SMASH_COOLDOWN,
+use crate::characters::{
+    aggression::{AttackCooldown, AttackHitbox, AttackSensor, DeadBody, Invulnerable},
+    // Invulnerable,
+    animations::CharacterState,
+    movement::CharacterHitbox,
+    player::{PlayerHitbox, PossesionCount},
 };
 
 use super::{
-    behaviors::{BossBehavior, BossSensor, ProximitySensor},
+    behaviors::{BossAction, BossActions, BossBehavior, BossSensor, ProximitySensor},
     Boss, BossAttackFallenAngel, BossAttackSmash,
 };
 
@@ -32,6 +28,8 @@ use super::{
 //     }
 // }
 
+/// DOC: Event
+///
 /// Happens when
 ///   - ???
 ///     - action
@@ -56,8 +54,6 @@ pub struct BossDeathEvent;
 ///
 /// For more depts: [Collision groups and solver groups](https://rapier.rs/docs/user_guides/bevy_plugin/colliders/#collision-groups-and-solver-groups)
 pub fn boss_proximity_attack(
-    mut commands: Commands,
-
     rapier_context: Res<RapierContext>,
 
     boss_proximity_sensor_query: Query<
@@ -71,7 +67,7 @@ pub fn boss_proximity_attack(
     >,
     player_sensor_query: Query<(Entity, &Parent), (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
-    mut boss_query: Query<(&mut CharacterState, &BossBehavior), (With<Boss>, Without<DeadBody>)>,
+    mut boss_query: Query<(&BossBehavior, &mut BossActions), (With<Boss>, Without<DeadBody>)>,
 ) {
     // Phase 1 - Sensor
     if let Ok((attack_sensor, boss)) = boss_proximity_sensor_query.get_single() {
@@ -81,18 +77,20 @@ pub fn boss_proximity_attack(
                 match boss_query.get_mut(**boss) {
                     // DEBUG: (in the start of the game) / Every time a entity spawns, log the name + current identifier
                     Err(e) => warn!("This entity: {:?} Cannot be animated: {:?}", **boss, e),
-                    Ok((mut state, behavior)) => {
+                    Ok((behavior, mut boss_actions)) => {
                         if *behavior == BossBehavior::Chase {
-                            *state = CharacterState::TransitionToCharge;
-
                             // Phase 2 - Timer
-                            commands
-                                // REFACTOR: where the cooldown timer is placed
-                                .entity(attack_sensor) // **boss
-                                .insert(AttackCooldown(Timer::from_seconds(
-                                    BOSS_SMASH_COOLDOWN,
-                                    TimerMode::Once,
-                                )));
+                            match boss_actions.0 {
+                                Some(_) => {}
+                                None => {
+                                    boss_actions.0 = Some(vec![
+                                        BossAction::Smash,
+                                        // BossAction::Smash,
+                                        // BossAction::Smash,
+                                        // BossAction::Smash,
+                                    ])
+                                }
+                            }
                         }
                     }
                 }
