@@ -25,7 +25,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app .add_event::<CreatePlayerEvent>()
             .add_event::<PlayerDeathEvent>()
-            .insert_resource(PossesionCount(1))
+            .insert_resource(PossesionCount(0))
             .add_startup_system(spawn_first_player)
             .add_system(
                 create_player
