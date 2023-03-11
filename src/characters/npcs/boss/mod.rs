@@ -18,7 +18,7 @@ use crate::{
             movement::{stare_player, chase_player}
         }
     },
-    constants::character::{CHAR_POSITION, boss::{*, behaviors_sensors::*}, FRAME_TIME}, MySystems,
+    constants::character::{CHAR_POSITION, boss::{*, attack_hitbox::*, behaviors_sensors::*}, FRAME_TIME}, MySystems,
 };
 
 pub struct BossPlugin;
@@ -78,19 +78,26 @@ fn setup_boss(
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, BOSS_IDLE_FRAMES);
     animation_indices.insert(CharacterState::Run, BOSS_RUN_FRAMES);
+    animation_indices.insert(CharacterState::Dash, BOSS_DASH_FRAMES);
+    animation_indices.insert(CharacterState::TpOut, BOSS_TP_OUT_FRAMES);
+    animation_indices.insert(CharacterState::TpIn, BOSS_TP_IN_FRAMES);
     // Transition Blank to Smash (Backhand)
     animation_indices.insert(CharacterState::TransitionToCharge, BOSS_TRANSITION_TO_SMASH_FRAMES);
     // animation_indices.insert(CharacterState::Charge, BOSS_CHARGE_FRAMES);
+    animation_indices.insert(CharacterState::Feint, BOSS_FEINT_FRAMES);
     // Backhand
     animation_indices.insert(CharacterState::Attack, BOSS_SMASH_FRAMES);
     // Powerfull Attack: Fallen angel
     animation_indices.insert(CharacterState::SecondAttack, BOSS_FALLEN_ANGEL_FRAMES);
+    animation_indices.insert(CharacterState::ThirdAttack, BOSS_LASER_RAIN_FRAMES);
     animation_indices.insert(CharacterState::Hit, BOSS_HIT_FRAMES);
     animation_indices.insert(CharacterState::Dead, BOSS_DEAD_FRAMES);
 
-    let texture_handle = asset_server.load("textures/character/magic_bot_spritesheet.png");
+    let texture_handle = asset_server.load("textures/character/magic_bot_spritesheet_v3.png");
+    // let texture_handle = asset_server.load("textures/character/magic_bot_spritesheet_v2-2.png");
     let texture_atlas =
-        TextureAtlas::from_grid(texture_handle, Vec2::new(200.0, 200.0), 35, 1, None, None);
+        TextureAtlas::from_grid(texture_handle, Vec2::new(200.0, 200.0), 66, 1, None, None);
+        // TextureAtlas::from_grid(texture_handle, Vec2::new(200.0, 200.0), 56, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     let texture_atlas_sprite = TextureAtlasSprite::new(0);
@@ -183,6 +190,8 @@ fn setup_boss(
                             BACKSTROKE_DASH_SENSOR.1,
                         ),
                         Transform::default(),
+                        // TODO: only active when in BossBehavior::Chase
+                        ActiveEvents::COLLISION_EVENTS,
                         Name::new("Backstroke Dash Sensor"),
                         Sensor,
                         BackstrokeDashSensor,

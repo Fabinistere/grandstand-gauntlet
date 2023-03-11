@@ -12,13 +12,17 @@ use super::npcs::boss::behaviors::{ActionCompletedEvent, BossAction, BossActions
 pub enum CharacterState {
     #[default]
     Idle,
+    Feint,
     Attack,
     SecondAttack,
+    ThirdAttack,
     ChargedAttack,
     TransitionToCharge,
     Charge,
     Run,
     Dash,
+    TpOut,
+    TpIn,
     Hit,
     Dead,
 }
@@ -34,6 +38,18 @@ pub struct AnimationTimer(pub Timer);
 #[derive(Component, Deref, DerefMut, Clone)]
 pub struct AnimationIndices(pub HashMap<CharacterState, (usize, usize, CharacterState)>);
 
+/// Happens when
+///   - animation::animate_character
+///     - A boss get to the last frame of one of their AnimState
+///     
+/// Read in
+///   - animation:boss_last_frame
+///     - Send a Action Completed Event whether
+///     the state is consistent with the current action
+pub struct BossLastFrameEvent(pub CharacterState);
+
+/// Animates all but Bosses
+///
 /// # Note
 ///
 /// TODO: longer animation of "getting hit"
@@ -55,8 +71,8 @@ pub fn animate_character(
         Or<(With<Player>, With<Boss>, With<CrowdMember>, With<DeadBody>)>,
     >,
 
-    boss_actions_query: Query<&BossActions>,
-    mut action_completed_event: EventWriter<ActionCompletedEvent>,
+    boss_query: Query<Entity, With<Boss>>,
+    mut boss_last_frame_event: EventWriter<BossLastFrameEvent>,
 ) {
     for (
         character,
@@ -85,26 +101,10 @@ pub fn animate_character(
                 if *character_state == CharacterState::Dead {
                     commands.entity(character).remove::<AnimationTimer>();
                 } else {
-                    // --- Boss AI ---
-                    if let Ok(boss_actions) = boss_actions_query.get(character) {
-                        match &boss_actions.0 {
-                            None => continue,
-                            Some(actions) => {
-                                // shouldn't crash
-                                match actions[0] {
-                                    BossAction::Smash => {
-                                        if *character_state == CharacterState::Attack {
-                                            action_completed_event.send(ActionCompletedEvent);
-                                        }
-                                    }
-                                    BossAction::FallenAngel => {
-                                        if *character_state == CharacterState::SecondAttack {
-                                            action_completed_event.send(ActionCompletedEvent);
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                            }
+                    match boss_query.get(character) {
+                        Err(_) => {}
+                        Ok(_) => {
+                            boss_last_frame_event.send(BossLastFrameEvent(character_state.clone()));
                         }
                     }
 
@@ -119,6 +119,47 @@ pub fn animate_character(
                 warn!("anim limit reached: {}", name);
                 // commands.entity(character).remove::<AnimationTimer>();
                 sprite.index = indices[next_phase].0;
+            }
+        }
+    }
+}
+
+/// Animates only Bosses
+///
+/// # Note
+///
+/// TODO: longer animation of "getting hit"
+pub fn boss_last_frame(
+    mut boss_last_frame_event: EventReader<BossLastFrameEvent>,
+    mut query: Query<&BossActions, With<Boss>>,
+    mut action_completed_event: EventWriter<ActionCompletedEvent>,
+) {
+    for BossLastFrameEvent(boss_state) in boss_last_frame_event.iter() {
+        for boss_actions in &mut query {
+            // --- Boss AI ---
+            match &boss_actions.0 {
+                None => continue,
+                Some(actions) => {
+                    // shouldn't crash
+                    match actions[0] {
+                        BossAction::Smash => {
+                            if *boss_state == CharacterState::Attack {
+                                action_completed_event.send(ActionCompletedEvent);
+                            }
+                        }
+                        BossAction::FallenAngel => {
+                            if *boss_state == CharacterState::SecondAttack {
+                                action_completed_event.send(ActionCompletedEvent);
+                            }
+                        }
+                        BossAction::Dash => {
+                            if *boss_state == CharacterState::Dash {
+                                action_completed_event.send(ActionCompletedEvent);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
     }

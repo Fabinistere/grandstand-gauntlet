@@ -5,7 +5,7 @@ use crate::{
     characters::{
         aggression::{DeadBody, FlipAttackSensorEvent},
         animations::CharacterState,
-        movement::Speed,
+        movement::{DashTimer, Speed},
         npcs::boss::{behaviors::BossBehavior, Boss},
         player::Player,
         Freeze,
@@ -63,7 +63,7 @@ pub fn chase_player(
             &mut Velocity,
             &BossBehavior,
         ),
-        (With<Boss>, Without<DeadBody>),
+        (With<Boss>, Without<DeadBody>, Without<DashTimer>),
     >,
     player_query: Query<&Transform, (With<Player>, Without<CrowdMember>)>,
     time: Res<Time>,
@@ -71,8 +71,9 @@ pub fn chase_player(
     if let Ok((boss, mut boss_state, boss_transform, speed, mut boss_vel, behavior)) =
         boss_query.get_single_mut()
     {
-        // REFACTOR / OPTIMIZE: A component for this particular Chase Behavior
+        // REFACTOR / OPTIMIZE: A component for this particular Chase Behavior?
         if *behavior != BossBehavior::Chase {
+            // info!("No Chase");
             return;
         }
         // If boss is attacking, don't allow them to move

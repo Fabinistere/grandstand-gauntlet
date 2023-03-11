@@ -7,7 +7,7 @@ use crate::{
     characters::{
         aggression::{AttackCooldown, DeadBody},
         animations::CharacterState,
-        movement::CharacterHitbox,
+        movement::{CharacterHitbox, DashTimer},
         player::{Player, PlayerHitbox},
     },
     collisions::CollisionEventExt,
@@ -57,7 +57,7 @@ pub enum BossAction {
     LaserRain,
     // -- Movements --
     Dash,
-    /// TP to x, should prefer the ²f32
+    /// TP to x, should prefer the ²f32 (but can't deref)
     Tp(i32),
 }
 
@@ -106,13 +106,16 @@ pub fn backstroke_sensor(
 
     rapier_context: Res<RapierContext>,
 
-    backstroke_sensor_query: Query<Entity, With<BackstrokeDashSensor>>,
+    backstroke_sensor_query: Query<Entity, (With<BackstrokeDashSensor>, With<ActiveEvents>)>,
     player_hitbox_query: Query<Entity, (With<PlayerHitbox>, With<CharacterHitbox>)>,
 
     player_query: Query<(&Transform, &Velocity), With<Player>>,
-    // &mut BossBehavior,
-    mut boss_query: Query<(&mut BossActions, &Transform), (With<Boss>, Without<DeadBody>)>,
+    mut boss_query: Query<
+        (&mut BossActions, &Transform, &mut BossBehavior),
+        (With<Boss>, Without<DeadBody>),
+    >,
 ) {
+    // only detects newly collision (enter/exit)
     for collision_event in collision_events.iter() {
         let entity_1 = collision_event.entities().0;
         let entity_2 = collision_event.entities().1;
@@ -125,20 +128,24 @@ pub fn backstroke_sensor(
                 player_hitbox_query.get(entity_2),
             ) {
                 (Ok(_), Err(_), Err(_), Ok(_)) | (Err(_), Ok(_), Ok(_), Err(_)) => {
+                    // info!("backstroke + player hitbox");
                     let (player_transform, player_vel) = player_query.single();
-                    // mut boss_behavior
-                    if let Ok((mut boss_actions, boss_transform)) = boss_query.get_single_mut() {
+                    if let Ok((mut boss_actions, boss_transform, mut boss_behavior)) =
+                        boss_query.get_single_mut()
+                    {
+                        // info!("Player x Boss");
                         // The player is running away
                         if (boss_transform.translation.x < player_transform.translation.x
                             && player_vel.linvel.x < 0.)
                             || (boss_transform.translation.x > player_transform.translation.x
                                 && player_vel.linvel.x > 0.)
                         {
-                            // *boss_behavior = BossBehavior::DashInAttack;
-                            // REFACTOR: prefer send a event to modify that
+                            // REFACTOR: prefer send a event to modify that?
                             match boss_actions.0 {
                                 Some(_) => continue,
                                 None => {
+                                    info!("DashInAttack");
+                                    *boss_behavior = BossBehavior::DashInAttack;
                                     boss_actions.0 = Some(vec![BossAction::Dash, BossAction::Smash])
                                 }
                             }
@@ -151,6 +158,7 @@ pub fn backstroke_sensor(
     }
 }
 
+/// Removes the first action on event
 pub fn boss_actions_completed(
     mut action_completed_event: EventReader<ActionCompletedEvent>,
 
@@ -161,6 +169,7 @@ pub fn boss_actions_completed(
             match &boss_actions.0 {
                 None => warn!("There is no actions for the boss, (None)"),
                 Some(actions) => {
+                    info!("BossActionCompleted!");
                     if let Some((_first, rem)) = actions.split_first() {
                         // pop first only
                         if rem.is_empty() {
@@ -198,7 +207,14 @@ pub fn boss_actions_completed(
 pub fn boss_actions(
     mut commands: Commands,
     mut boss_query: Query<
-        (&BossActions, &Transform, &mut CharacterState),
+        (
+            Entity,
+            &BossActions,
+            &Transform,
+            &mut Velocity,
+            &mut CharacterState,
+            &mut BossBehavior,
+        ),
         (With<Boss>, Changed<BossActions>, Without<DeadBody>),
     >,
     boss_proximity_sensor_query: Query<
@@ -211,14 +227,30 @@ pub fn boss_actions(
         ),
     >,
 ) {
-    if let Ok((boss_actions, _boss_transform, mut boss_state)) = boss_query.get_single_mut() {
+    if let Ok((
+        boss,
+        boss_actions,
+        _boss_transform,
+        mut boss_vel,
+        mut boss_state,
+        mut boss_behavior,
+    )) = boss_query.get_single_mut()
+    {
         match &boss_actions.0 {
-            None => {}
+            None => {
+                *boss_behavior = BossBehavior::Chase;
+            }
             Some(actions) => {
                 for action in actions.iter() {
                     match action {
                         BossAction::Dash => {
+                            boss_vel.linvel = Vect::ZERO;
                             *boss_state = CharacterState::Dash;
+                            commands.entity(boss).insert((
+                                DashTimer(Timer::from_seconds(0.2, TimerMode::Once)),
+                                // Invulnerable(Timer::from_seconds(0.2, TimerMode::Once)),
+                            ));
+                            // commands.entity(boss).remove::<Freeze>();
                         }
                         BossAction::Wait(_time) => {
                             // add wait timer
@@ -235,6 +267,9 @@ pub fn boss_actions(
                                         TimerMode::Once,
                                     )));
                             }
+                        }
+                        BossAction::FeintSmash => {
+                            *boss_state = CharacterState::Feint;
                         }
                         _ => {}
                     }

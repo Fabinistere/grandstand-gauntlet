@@ -66,14 +66,16 @@ pub mod character {
         pub const FRONT_SMASH_POS_BOTTOM: (f32, f32, f32) = (20., -4., 0.);
         pub const BOSS_ATTACK_HITBOX_SMASH_BOTTOM: (f32, f32) = (40., 10.);
 
-        pub const FALLEN_ANGEL_POS: (f32, f32, f32) = (0., -5.5, 0.);
-        pub const BOSS_ATTACK_HITBOX_FALLEN_ANGEL: (f32, f32) = (45., 7.);
-
         pub const BOSS_HITBOX_SIZE: f32 = 12.;
-        pub const BOSS_RANGE_HITBOX_SIZE: f32 = 40.;
-        pub const BOSS_HITBOX_OFFSET_Y: (f32, f32, f32) = (0., 5., 0.);
 
-        pub mod attack_hitbox {}
+        pub mod attack_hitbox {
+
+            pub const FALLEN_ANGEL_POS: (f32, f32, f32) = (0., -5.5, 0.);
+            pub const BOSS_ATTACK_HITBOX_FALLEN_ANGEL: (f32, f32) = (45., 7.);
+
+            pub const BOSS_RANGE_HITBOX_SIZE: f32 = 40.;
+            pub const BOSS_HITBOX_OFFSET_Y: (f32, f32, f32) = (0., 5., 0.);
+        }
 
         pub mod behaviors_sensors {
             pub const BACKSTROKE_DASH_POS: (f32, f32, f32) = (90., -20., 0.);
@@ -83,8 +85,14 @@ pub mod character {
         // -- Animation --
         pub const BOSS_IDLE_FRAMES: (usize, usize, CharacterState) = (0, 4, CharacterState::Idle);
         pub const BOSS_RUN_FRAMES: (usize, usize, CharacterState) = (5, 10, CharacterState::Idle);
+        pub const BOSS_DASH_FRAMES: (usize, usize, CharacterState) = (56, 65, CharacterState::Idle);
+        pub const BOSS_TP_OUT_FRAMES: (usize, usize, CharacterState) =
+            (29, 34, CharacterState::TpIn);
+        pub const BOSS_TP_IN_FRAMES: (usize, usize, CharacterState) = (5, 10, CharacterState::Idle);
         // pub const BOSS_CHARGE_FRAMES: (usize, usize, CharacterState) =
         //     (11, 14, CharacterState::Attack);
+        pub const BOSS_FEINT_FRAMES: (usize, usize, CharacterState) =
+            (41, 45, CharacterState::Idle);
         pub const BOSS_TRANSITION_TO_SMASH_FRAMES: (usize, usize, CharacterState) =
             (11, 14, CharacterState::Attack);
         pub const BOSS_SMASH_FRAMES: (usize, usize, CharacterState) =
@@ -92,6 +100,8 @@ pub mod character {
         // TODO: Fix last frame FX -----vvv
         pub const BOSS_FALLEN_ANGEL_FRAMES: (usize, usize, CharacterState) =
             (19, 26, CharacterState::Idle);
+        pub const BOSS_LASER_RAIN_FRAMES: (usize, usize, CharacterState) =
+            (47, 57, CharacterState::Idle);
         pub const BOSS_HIT_FRAMES: (usize, usize, CharacterState) = (27, 28, CharacterState::Idle);
         pub const BOSS_DEAD_FRAMES: (usize, usize, CharacterState) = (29, 34, CharacterState::Dead);
     }

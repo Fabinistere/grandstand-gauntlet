@@ -9,8 +9,8 @@ use bevy::prelude::*;
 use crate::{
     characters::{
         aggression::{AggressionPlugin, DeadBody},
-        movement::{dash_timer, hyper_dash_timer, player_dash},
-        animations::animate_character,
+        movement::{dash_timer, hyper_dash_timer},
+        animations::{animate_character, boss_last_frame},
         animations::jump_frame_character_state,
         npcs::NPCsPlugin,
         player::PlayerPlugin,
@@ -19,6 +19,7 @@ use crate::{
     MySystems,
 };
 
+use self::animations::BossLastFrameEvent;
 
 pub struct CharacterPlugin;
 
@@ -32,9 +33,9 @@ impl Plugin for CharacterPlugin {
             .add_plugin(PlayerPlugin)
             .add_plugin(AggressionPlugin)
             .add_system(dash_timer)
-            .add_system(player_dash)
             .add_system(hyper_dash_timer)
             // -- Animation --
+            .add_event::<BossLastFrameEvent>()
             .add_system(move_dead_bodies.with_run_criteria(run_if_the_player_is_not_frozen))
             // CoreStage::Last (after player_death_event and player_attack player_movement) but should be fine
             .add_system_to_stage(
@@ -48,6 +49,11 @@ impl Plugin for CharacterPlugin {
                 CoreStage::PostUpdate,
                 animate_character
                     .label(MySystems::Animation)
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                boss_last_frame
+                    .after(MySystems::Animation)
             )
             ;
     }

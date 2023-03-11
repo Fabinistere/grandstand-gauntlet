@@ -9,7 +9,7 @@ use crate::{
             Invulnerable,
         },
         animations::{AnimationIndices, AnimationTimer, CharacterState},
-        movement::{CharacterHitbox, MovementBundle, Speed},
+        movement::{CharacterHitbox, HyperDashTimer, MovementBundle, Speed},
         Freeze,
     },
     constants::character::{player::*, FRAME_TIME},
@@ -17,6 +17,8 @@ use crate::{
     soul_shift::SoulShifting,
     MySystems,
 };
+
+use super::movement::DashTimer;
 
 pub struct PlayerPlugin;
 
@@ -49,6 +51,7 @@ impl Plugin for PlayerPlugin {
             .add_system_to_stage(CoreStage::PostUpdate, player_attack)
             // -- Movement --
             .add_system_to_stage(CoreStage::PostUpdate, player_movement)
+            .add_system(player_dash)
             ;
     }
 }
@@ -273,6 +276,30 @@ fn player_movement(
             } else if left {
                 texture_atlas_sprite.flip_x = true;
             }
+        }
+    }
+}
+
+pub fn player_dash(
+    mut commands: Commands,
+    keyboard_input: Res<Input<KeyCode>>,
+    player_query: Query<Entity, (With<Player>, Without<DashTimer>)>,
+) {
+    if let Ok(player) = player_query.get_single() {
+        if keyboard_input.just_pressed(KeyCode::Space) {
+            info!("DAAASH !!");
+            commands.entity(player).insert((
+                DashTimer(Timer::from_seconds(0.2, TimerMode::Once)),
+                Invulnerable(Timer::from_seconds(0.4, TimerMode::Once)),
+            ));
+        }
+        // cost: 10hp (cause of bam_the_player)
+        else if keyboard_input.just_pressed(KeyCode::F) {
+            info!("HYPEEEEEEEEEER DAAASH !!");
+            commands.entity(player).insert((
+                HyperDashTimer(Timer::from_seconds(0.5, TimerMode::Once)),
+                Invulnerable(Timer::from_seconds(0.5, TimerMode::Once)),
+            ));
         }
     }
 }
