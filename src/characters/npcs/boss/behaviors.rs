@@ -7,7 +7,7 @@ use crate::{
     characters::{
         aggression::{AttackCooldown, DeadBody},
         animations::CharacterState,
-        movement::{CharacterHitbox, DashTimer},
+        movement::CharacterHitbox,
         player::{Player, PlayerHitbox},
     },
     collisions::CollisionEventExt,
@@ -136,9 +136,9 @@ pub fn backstroke_sensor(
                         // info!("Player x Boss");
                         // The player is running away
                         if (boss_transform.translation.x < player_transform.translation.x
-                            && player_vel.linvel.x < 0.)
+                            && player_vel.linvel.x > 0.)
                             || (boss_transform.translation.x > player_transform.translation.x
-                                && player_vel.linvel.x > 0.)
+                                && player_vel.linvel.x < 0.)
                         {
                             // REFACTOR: prefer send a event to modify that?
                             match boss_actions.0 {
@@ -228,7 +228,7 @@ pub fn boss_actions(
     >,
 ) {
     if let Ok((
-        boss,
+        _boss,
         boss_actions,
         _boss_transform,
         mut boss_vel,
@@ -245,12 +245,15 @@ pub fn boss_actions(
                     match action {
                         BossAction::Dash => {
                             boss_vel.linvel = Vect::ZERO;
-                            *boss_state = CharacterState::Dash;
-                            commands.entity(boss).insert((
-                                DashTimer(Timer::from_seconds(0.2, TimerMode::Once)),
-                                // Invulnerable(Timer::from_seconds(0.2, TimerMode::Once)),
-                            ));
-                            // commands.entity(boss).remove::<Freeze>();
+                            *boss_state = CharacterState::TransitionToDash;
+
+                            // |||--- These processes happens at the end of the TransitionToDash anim
+                            // vvv    in animation::boss_last_frame
+                            // *boss_state = CharacterState::Dash;
+                            // commands.entity(boss).insert((
+                            //     DashTimer(Timer::from_seconds(0.2, TimerMode::Once)),
+                            //     // Invulnerable(Timer::from_seconds(0.2, TimerMode::Once)),
+                            // ));
                         }
                         BossAction::Wait(_time) => {
                             // add wait timer

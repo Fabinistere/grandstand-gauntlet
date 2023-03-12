@@ -6,7 +6,10 @@ use crate::{
     crowd::CrowdMember,
 };
 
-use super::npcs::boss::behaviors::{ActionCompletedEvent, BossAction, BossActions};
+use super::{
+    movement::DashTimer,
+    npcs::boss::behaviors::{ActionCompletedEvent, BossAction, BossActions},
+};
 
 #[derive(Default, Debug, Clone, Component, Eq, Hash, Inspectable, PartialEq)]
 pub enum CharacterState {
@@ -20,6 +23,7 @@ pub enum CharacterState {
     TransitionToCharge,
     Charge,
     Run,
+    TransitionToDash,
     Dash,
     TpOut,
     TpIn,
@@ -131,11 +135,13 @@ pub fn animate_character(
 /// TODO: longer animation of "getting hit"
 pub fn boss_last_frame(
     mut boss_last_frame_event: EventReader<BossLastFrameEvent>,
-    mut query: Query<&BossActions, With<Boss>>,
+
+    mut commands: Commands,
+    mut query: Query<(Entity, &BossActions), With<Boss>>,
     mut action_completed_event: EventWriter<ActionCompletedEvent>,
 ) {
     for BossLastFrameEvent(boss_state) in boss_last_frame_event.iter() {
-        for boss_actions in &mut query {
+        for (boss, boss_actions) in &mut query {
             // --- Boss AI ---
             match &boss_actions.0 {
                 None => continue,
@@ -155,6 +161,11 @@ pub fn boss_last_frame(
                         BossAction::Dash => {
                             if *boss_state == CharacterState::Dash {
                                 action_completed_event.send(ActionCompletedEvent);
+                            } else if *boss_state == CharacterState::TransitionToDash {
+                                commands.entity(boss).insert((
+                                    DashTimer(Timer::from_seconds(0.2, TimerMode::Once)),
+                                    // Invulnerable(Timer::from_seconds(0.2, TimerMode::Once)),
+                                ));
                             }
                         }
                         _ => {}

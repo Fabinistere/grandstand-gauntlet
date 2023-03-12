@@ -78,6 +78,7 @@ fn setup_boss(
     let mut animation_indices = AnimationIndices(HashMap::new());
     animation_indices.insert(CharacterState::Idle, BOSS_IDLE_FRAMES);
     animation_indices.insert(CharacterState::Run, BOSS_RUN_FRAMES);
+    animation_indices.insert(CharacterState::TransitionToDash, BOSS_TRANSITION_TO_DASH_FRAMES);
     animation_indices.insert(CharacterState::Dash, BOSS_DASH_FRAMES);
     animation_indices.insert(CharacterState::TpOut, BOSS_TP_OUT_FRAMES);
     animation_indices.insert(CharacterState::TpIn, BOSS_TP_IN_FRAMES);

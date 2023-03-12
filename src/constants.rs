@@ -85,7 +85,9 @@ pub mod character {
         // -- Animation --
         pub const BOSS_IDLE_FRAMES: (usize, usize, CharacterState) = (0, 4, CharacterState::Idle);
         pub const BOSS_RUN_FRAMES: (usize, usize, CharacterState) = (5, 10, CharacterState::Idle);
-        pub const BOSS_DASH_FRAMES: (usize, usize, CharacterState) = (56, 65, CharacterState::Idle);
+        pub const BOSS_TRANSITION_TO_DASH_FRAMES: (usize, usize, CharacterState) =
+            (56, 59, CharacterState::Dash);
+        pub const BOSS_DASH_FRAMES: (usize, usize, CharacterState) = (60, 65, CharacterState::Idle);
         pub const BOSS_TP_OUT_FRAMES: (usize, usize, CharacterState) =
             (29, 34, CharacterState::TpIn);
         pub const BOSS_TP_IN_FRAMES: (usize, usize, CharacterState) = (5, 10, CharacterState::Idle);
