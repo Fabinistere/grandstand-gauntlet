@@ -43,6 +43,8 @@ pub enum MySystems {
     PlayerDeath,
     /// End the dying past boss
     BossDeath,
+    /// label for animate_character()
+    Animation,
 }
 
 #[rustfmt::skip]
